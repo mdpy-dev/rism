@@ -7,6 +7,7 @@ author : Zhenyu Wei
 copyright : (C)Copyright 2021-present, mdpy organization
 """
 
+
 import cupy as cp
 import cupyx.scipy.fft as fft
 from rism.environment import CUPY_FLOAT
@@ -19,7 +20,7 @@ class OZSolventPicard3DSolver:
     def __init__(
         self, grid: FFTGrid, solvent_type: str, temperature=Quantity(300, kelvin)
     ) -> None:
-        """Create solver for a 3D Ornstein-Zernike equation in 3D cartesian coordinate system
+        """Create solver for a 3D Ornstein-Zernike equation in 3D cartesian coordinate system using Picard iteration
 
         Args:
             grid (FFTGrid): The grid defining the coordinate system
@@ -83,7 +84,7 @@ class OZSolventPicard3DSolver:
         )
         return shift
 
-    def iterate(
+    def solve(
         self,
         coordinate,
         iterations,
