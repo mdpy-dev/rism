@@ -53,7 +53,7 @@ if __name__ == "__main__":
     solver = OZSolventPicard3DSolver(
         grid=grid, temperature=temperature, solvent_type="o"
     )
-    h, c = solver.iterate(np.array([4, 4, 0]), iterations=10)
+    h, c = solver.solve(np.array([4, 4, 0]), iterations=10)
     visualize(grid, h, c)
-    h, c = solver.iterate(np.array([4, 4, 0]), iterations=100, restart_value=(h, c))
+    h, c = solver.solve(np.array([4, 4, 0]), iterations=100, restart_value=(h, c))
     visualize(grid, h, c)
