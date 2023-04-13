@@ -23,6 +23,7 @@ setup(
     # setup_requires = ['pytest-runner'],
     tests_require=["pytest"],
     install_requires=[
+        "numba>=0.54.1",
         "numpy >= 1.20.0",
         "scipy >= 1.7.0",
         "matplotlib >= 3.0.0",
