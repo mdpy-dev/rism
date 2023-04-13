@@ -2,7 +2,7 @@
 # -*- encoding: utf-8 -*-
 """
 file : error.py
-created time : 2021/09/28
+created time : 2023/04/13
 author : Zhenyu Wei
 copyright : (C)Copyright 2021-present, mdpy organization
 """
@@ -14,6 +14,17 @@ class UnitDimensionMismatchedError(Exception):
 
     Used in:
     - mdpy.unit.base_dimension
+    """
+
+    pass
+
+
+class UnregisteredParticleError(Exception):
+    """This error occurs when:
+    - A particle type has not been registered in rism.FFDict is provided.
+
+    Used in:
+    - rism.potential
     """
 
     pass
