@@ -14,10 +14,10 @@ from rism.core import FFTGrid
 
 
 class TestFFTGrid:
-    def setup(self):
+    def setup_method(self):
         self.grid = FFTGrid(x=[-2, 2, 128], y=[-2, 2, 128], z=[-2, 2, 128])
 
-    def teardown(self):
+    def teardown_method(self):
         del self.grid
 
     def test_attribute(self):

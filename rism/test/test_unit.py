@@ -15,10 +15,10 @@ from rism.environment import *
 
 
 class TestUnit:
-    def setup(self):
+    def setup_method(self):
         self.unit = Unit(BaseDimension(length_dimension=1), 1e-10)
 
-    def teardown(self):
+    def teardown_method(self):
         self.unit = None
 
     def test_attributes(self):

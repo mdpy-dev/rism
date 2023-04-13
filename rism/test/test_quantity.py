@@ -15,10 +15,10 @@ from rism.environment import *
 
 
 class TestQuantity:
-    def setup(self):
+    def setup_method(self):
         pass
 
-    def teardown(self):
+    def teardown_method(self):
         pass
 
     def test_attributes(self):
