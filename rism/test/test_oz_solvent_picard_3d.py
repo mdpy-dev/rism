@@ -13,6 +13,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 from rism.core import FFTGrid
 from rism.solver import OZSolventPicard3DSolver
+from rism.unit import *
 
 
 def visualize(grid, h, c, is_2d=True):
@@ -49,9 +50,10 @@ def visualize(grid, h, c, is_2d=True):
 if __name__ == "__main__":
     temperature = 300
     grid = FFTGrid(x=[-20, 20, 256], y=[-20, 20, 256], z=[-20, 20, 256])
+    rho_b = Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton) / NA
 
     solver = OZSolventPicard3DSolver(
-        grid=grid, temperature=temperature, solvent_type="o"
+        grid=grid, temperature=temperature, solvent_type="o", rho_b=rho_b
     )
     h, c = solver.solve(np.array([4, 4, 0]), iterations=10)
     visualize(grid, h, c)

@@ -18,30 +18,33 @@ from rism.unit import *
 
 class OZSolventPicard3DSolver:
     def __init__(
-        self, grid: FFTGrid, solvent_type: str, temperature=Quantity(300, kelvin)
+        self,
+        grid: FFTGrid,
+        solvent_type: str,
+        rho_b: Quantity,
+        temperature=Quantity(300, kelvin),
     ) -> None:
         """Create solver for a 3D Ornstein-Zernike equation in 3D cartesian coordinate system using Picard iteration
 
         Args:
             grid (FFTGrid): The grid defining the coordinate system
             solvent_type (str): particle type of the solvent
+            rho_b (`rism.unit.Quantity` or `float`): density of solvent in bulk, Unit: mol_dimension/length_dimension**3
             temperature (`rism.unit.Quantity` or `float`, optional): _description_. Defaults to Quantity(300, kelvin).
         """
         # Read input
         self._grid = grid
         self._solvent_type = solvent_type
-        # Add constant
+        self._rho_b = CUPY_FLOAT(
+            (check_quantity(rho_b, mol / decimeter**3) * NA)
+            .convert_to(1 / default_length_unit**3)
+            .value
+        )
         self._beta = CUPY_FLOAT(
             1
-            / check_quantity_value(
-                check_quantity(temperature, kelvin) * KB, default_energy_unit
-            )
-        )
-        self._rho_b = CUPY_FLOAT(
-            check_quantity_value(
-                Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton),
-                1 / default_length_unit**3,
-            )
+            / (check_quantity(temperature, kelvin) * KB)
+            .convert_to(default_energy_unit)
+            .value
         )
 
     def _get_u(self, coordinate):
