@@ -10,7 +10,7 @@ copyright : (C)Copyright 2021-present, mdpy organization
 
 import numpy as np
 import cupy as cp
-from rism.environment import CUPY_FLOAT, CUPY_INT
+from rism.environment import CUPY_FLOAT
 
 
 class FFTGrid:
@@ -65,15 +65,3 @@ class FFTGrid:
     @property
     def num_points(self) -> int:
         return int(np.prod(self._shape))
-
-    @property
-    def device_shape(self) -> cp.ndarray:
-        return cp.array(self._shape, CUPY_INT)
-
-    @property
-    def inner_shape(self) -> list[int]:
-        return self._inner_shape
-
-    @property
-    def device_inner_shape(self) -> cp.ndarray:
-        return cp.array(self._inner_shape, CUPY_INT)
