@@ -21,15 +21,13 @@ setup(
         ]
     },
     # setup_requires = ['pytest-runner'],
-    tests_require=["pytest", "pytest-xdist"],
+    tests_require=["pytest"],
     install_requires=[
         "numpy >= 1.20.0",
         "scipy >= 1.7.0",
         "matplotlib >= 3.0.0",
         "pytest >= 6.2.0",
-        "pytest-xdist >= 2.3.0",
         "cupy>=10.2.0",
-        "pytest-xdist>=2.3.0",
     ],
     python_requires=">=3.9",
 )
