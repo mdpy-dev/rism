@@ -10,20 +10,30 @@ copyright : (C)Copyright 2021-present, mdpy organization
 
 import cupy as cp
 import numpy as np
-from rism import FF_DICT
+from rism.potential import FF_DICT, check_particle_type
 from rism.unit import *
 from rism.environment import *
 
 
 class RVDWPotential:
     def __init__(self, type1: str, type2: str) -> None:
-        self._sigma, self._epsilon = self._get_vdw_parameter(type1, type2)
+        self._type1 = check_particle_type(type1)
+        self._type2 = check_particle_type(type2)
+        self._sigma, self._epsilon = self._get_vdw_parameter()
 
-    def _get_vdw_parameter(self, type1: str, type2: str):
-        sigma1 = check_quantity_value(FF_DICT[type1]["sigma"], default_length_unit)
-        epsilon1 = check_quantity_value(FF_DICT[type1]["epsilon"], default_energy_unit)
-        sigma2 = check_quantity_value(FF_DICT[type2]["sigma"], default_length_unit)
-        epsilon2 = check_quantity_value(FF_DICT[type2]["epsilon"], default_energy_unit)
+    def _get_vdw_parameter(self):
+        sigma1 = check_quantity_value(
+            FF_DICT[self._type1]["sigma"], default_length_unit
+        )
+        epsilon1 = check_quantity_value(
+            FF_DICT[self._type1]["epsilon"], default_energy_unit
+        )
+        sigma2 = check_quantity_value(
+            FF_DICT[self._type2]["sigma"], default_length_unit
+        )
+        epsilon2 = check_quantity_value(
+            FF_DICT[self._type2]["epsilon"], default_energy_unit
+        )
         return (
             CUPY_FLOAT(0.5 * (sigma1 + sigma2)),
             CUPY_FLOAT(np.sqrt(epsilon1 * epsilon2)),
@@ -41,3 +51,19 @@ class RVDWPotential:
         r_min = self._sigma * 2 ** (1 / 6)
         vdw[dist > r_min] = 0
         return vdw.astype(CUPY_FLOAT)
+
+    @property
+    def type1(self):
+        return self._type1
+
+    @property
+    def type2(self):
+        return self._type2
+
+    @property
+    def sigma(self):
+        return self._sigma
+
+    @property
+    def epsilon(self):
+        return self._epsilon
