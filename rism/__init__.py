@@ -7,3 +7,4 @@ import rism.core as core
 import rism.potential as potential
 import rism.solver as solver
 import rism.unit as unit
+import rism.closure as closure
