@@ -20,6 +20,7 @@ class OZSolventPicard3DSolver:
     def __init__(
         self,
         grid: FFTGrid,
+        closure,
         solvent_type: str,
         rho_b: Quantity,
         temperature=Quantity(300, kelvin),
@@ -28,12 +29,14 @@ class OZSolventPicard3DSolver:
 
         Args:
             grid (FFTGrid): The grid defining the coordinate system
+            closure (Any): The closure for OZ equation from rism.closure
             solvent_type (str): particle type of the solvent
             rho_b (`rism.unit.Quantity` or `float`): density of solvent in bulk, Unit: mol_dimension/length_dimension**3
             temperature (`rism.unit.Quantity` or `float`, optional): _description_. Defaults to Quantity(300, kelvin).
         """
         # Read input
         self._grid = grid
+        self._closure = closure
         self._solvent_type = solvent_type
         self._rho_b = CUPY_FLOAT(
             (check_quantity(rho_b, mol / decimeter**3) * NA)
@@ -115,7 +118,7 @@ class OZSolventPicard3DSolver:
 
         if restart_value is None:
             gamma = self._grid.zeros_field()
-            c = (exp_u - CUPY_FLOAT(1)) * (gamma + CUPY_FLOAT(1))
+            c = self._closure(exp_u, gamma)
         else:
             h, c = restart_value
             gamma = h - c
@@ -133,7 +136,7 @@ class OZSolventPicard3DSolver:
             gamma_pre = gamma.copy()
             gamma = cp.real(fft.ifftn(gamma_k))
             gamma = gamma * alta + gamma_pre * altb
-            c, c_pre = (exp_u - CUPY_FLOAT(1)) * (gamma + CUPY_FLOAT(1)), c
+            c, c_pre = self._closure(exp_u, gamma), c
 
             if i % verbose_freq == 0:
                 h = gamma + c

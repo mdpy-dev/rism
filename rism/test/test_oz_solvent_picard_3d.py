@@ -11,6 +11,7 @@ import cupy as cp
 import numpy as np
 import matplotlib
 import matplotlib.pyplot as plt
+import rism
 from rism.core import FFTGrid
 from rism.solver import OZSolventPicard3DSolver
 from rism.unit import *
@@ -51,11 +52,16 @@ if __name__ == "__main__":
     temperature = 300
     grid = FFTGrid(x=[-20, 20, 256], y=[-20, 20, 256], z=[-20, 20, 256])
     rho_b = Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton) / NA
+    closure = rism.closure.percus_yevick
 
     solver = OZSolventPicard3DSolver(
-        grid=grid, temperature=temperature, solvent_type="o", rho_b=rho_b
+        grid=grid,
+        closure=closure,
+        temperature=temperature,
+        solvent_type="o",
+        rho_b=rho_b,
     )
-    h, c = solver.solve(np.array([4, 4, 0]), iterations=10)
+    h, c = solver.solve(np.array([4, 0, 0]), iterations=10)
     visualize(grid, h, c)
-    h, c = solver.solve(np.array([4, 4, 0]), iterations=100, restart_value=(h, c))
-    visualize(grid, h, c)
+    h, c = solver.solve(np.array([4, 0, 0]), iterations=500, restart_value=(h, c))
+    visualize(grid, h, c, False)
