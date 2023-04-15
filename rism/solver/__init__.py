@@ -5,3 +5,4 @@ __license__ = "BSD-3"
 
 
 from rism.solver.oz_solvent_picard_3d import OZSolventPicard3DSolver
+from rism.solver.oz_solvent_nr_3d import OZSolventNR3DSSolver
