@@ -11,43 +11,12 @@ copyright : (C)Copyright 2021-present, mdpy organization
 import time
 import cupy as cp
 import torch as tc
-import torch.nn as nn
 import torch.fft as fft
-import torch.optim as optim
 from torch.autograd import grad
 from rism.environment import CUPY_FLOAT, TORCH_FLOAT, NUMPY_FLOAT
 from rism.core import FFTGrid
 from rism.potential import VDWPotential
 from rism.unit import *
-
-
-class OZ(nn.Module):
-    def __init__(self, alpha, basis_set, conjugate_set) -> None:
-        super().__init__()
-        self.alpha = nn.Parameter(alpha, requires_grad=True)
-        self._basis_set = basis_set
-        self._conjugate_set = conjugate_set
-        self._num_basis = len(basis_set)
-
-    def forward(self, delta_gamma, exp_u, factor):
-        gamma = tc.zeros_like(self._basis_set[0])
-        for i in range(self._num_basis):
-            gamma += self._basis_set[i] * self.alpha[i]
-        gamma += delta_gamma
-        # c
-        c = (exp_u - 1) * (gamma + 1)
-        ck = fft.fftn(c)
-        # gamma'
-        gamma_prime_k = factor * ck**2 / (1 - factor * ck)
-        gamma_prime = tc.real(fft.ifftn(gamma_prime_k))
-
-        # Newton-Raphson for new {a}
-        alpha_prime = tc.zeros(
-            self._num_basis, dtype=delta_gamma.dtype, device=delta_gamma.device
-        )
-        for i in range(self._num_basis):
-            alpha_prime[i] = (self._conjugate_set[i] * gamma_prime).sum()
-        return alpha_prime, gamma, gamma_prime
 
 
 class OZSolventNR3DSSolver:
@@ -211,6 +180,7 @@ class OZSolventNR3DSSolver:
         restart_value=None,
         nr_max_iterations=5,
         nr_step_size=0.1,
+        nr_tolerance=1e-3,
     ):
         """conduct Picard iteration for the 3D-Ornstein-Zernike equation.
 
@@ -221,6 +191,8 @@ class OZSolventNR3DSSolver:
             log_freq (`int`, optional): frequency of showing residual, no verbose when set to -1. Defaults to 10.
             restart_value (`tuple`, optional): (h, c) to define start point of iterations. Defaults to None as using an internal initial guess.
             nr_max_iterations (`int`, optional): number of iteration of inner Newton-Raphson iteration. Defaults to 10.
+            nr_step_size (`float`, optional): step size of Newton-Raphson iteration. Defaults to 0.1.
+            nr_tolerance (`float`, optional): tolerance of d_alpha in the Newton-Raphson iteration. Defaults to 1e-3.
 
         Returns:
             `tuple`: (h, c)
@@ -251,19 +223,11 @@ class OZSolventNR3DSSolver:
             delta_gamma -= alpha[i] * self._basis_set[i]
         alpha.requires_grad_(True)
 
-        # oz = OZ(alpha, self._basis_set, self._conjugate_set)
-        # optimizer = optim.SGD(oz.parameters(), lr=0.1)
-
         total_epoch, is_finished = 0, False
         s = time.time()
         while total_epoch < iterations and not is_finished:
             nr_epoch = 0
             while nr_epoch < nr_max_iterations:
-                # alpha_prime, gamma, gamma_prime = oz(delta_gamma, exp_u, factor)
-                # loss = (alpha_prime - oz.alpha).abs().sum()
-                # optimizer.zero_grad()
-                # loss.backward(retain_graph=True)
-                # optimizer.step()
                 # New gamma from alpha and delta_gamma
                 gamma = self._zeros(self._grid.shape)
                 for i in range(self._num_basis):
@@ -282,13 +246,22 @@ class OZSolventNR3DSSolver:
                     alpha_prime[i] = (self._conjugate_set[i] * gamma_prime).sum()
                 # Loss
                 loss = (alpha - alpha_prime).abs()
+                if loss.mean() <= nr_tolerance:
+                    print(
+                        "\t(Inner NR) Stop NR iterate at %d steps, d_alpha %.3e smaller than tolerance %.3e"
+                        % (total_epoch, loss.mean(), nr_tolerance)
+                    )
+                    break
                 jacobian = self._zeros((self._num_basis, self._num_basis))
                 for i in range(self._num_basis):
                     jacobian[i, :] = grad(loss[i], alpha, retain_graph=True)[0]
                 dl_da = grad(loss.sum(), alpha)[0]
                 inv_jacobian, is_un_inv = tc.linalg.inv_ex(jacobian)
                 if is_un_inv:
-                    print("Singularity Jacobian at iteration %d" % total_epoch)
+                    print(
+                        "\t(Inner NR) Singularity Jacobian at iteration %d"
+                        % total_epoch
+                    )
                     alpha = alpha - dl_da * 0.01
                 else:
                     alpha = alpha - tc.matmul(inv_jacobian, loss) * nr_step_size
