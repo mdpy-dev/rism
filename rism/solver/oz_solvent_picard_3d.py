@@ -7,7 +7,7 @@ author : Zhenyu Wei
 copyright : (C)Copyright 2021-present, mdpy organization
 """
 
-
+import time
 import cupy as cp
 import cupyx.scipy.fft as fft
 from rism.environment import CUPY_FLOAT
@@ -90,12 +90,22 @@ class OZSolventPicard3DSolver:
         )
         return shift
 
+    def _check_and_log(self, epoch, residual, error_tolerance):
+        print("Iteration %d, Residual %.3e" % (epoch, residual))
+        is_finished = residual < error_tolerance
+        if is_finished:
+            print(
+                "Stop iterate at %d steps, residual %.3e smaller than tolerance %.3e"
+                % (epoch, residual, error_tolerance)
+            )
+        return is_finished
+
     def solve(
         self,
         coordinate,
         iterations,
         error_tolerance=1e-5,
-        verbose_freq=10,
+        log_freq=10,
         alt=0.9,
         restart_value=None,
     ):
@@ -105,7 +115,7 @@ class OZSolventPicard3DSolver:
             coordinate (`cp.ndarray` or `np.ndarray`): center coordinate of target
             iterations (`int`): number of iterations
             error_tolerance (`float`, optional): the error tolerance of iteration. Defaults to 1e-5.
-            verbose_freq (`int`, optional): frequency of showing residual, no verbose when set to -1. Defaults to 10.
+            log_freq (`int`, optional): frequency of showing residual, no verbose when set to -1. Defaults to 10.
             alt (`float`, optional): relaxation coefficient. Defaults to 0.9.
             restart_value (`tuple`, optional): (h, c) to define start point of iterations. Defaults to None as using an internal initial guess.
 
@@ -128,9 +138,11 @@ class OZSolventPicard3DSolver:
         center_shift = self._get_center_shift(coordinate)
         factor = self._rho_b * dv * convolve_shift * center_shift
 
-        i, is_finished = 0, False
+        epoch, is_finished = 0, False
         alta, altb = CUPY_FLOAT(alt), CUPY_FLOAT(1 - alt)
-        while i < iterations and not is_finished:
+        s = time.time()
+
+        while epoch < iterations and not is_finished:
             ck = fft.fftn(c)
             gamma_k = factor * ck**2 / (1 - factor * ck)
             gamma_pre = gamma.copy()
@@ -138,16 +150,12 @@ class OZSolventPicard3DSolver:
             gamma = gamma * alta + gamma_pre * altb
             c, c_pre = self._closure(exp_u, gamma), c
 
-            if i % verbose_freq == 0:
-                h = gamma + c
-                h_pre = gamma_pre + c_pre
-                residual = cp.abs(h - h_pre).mean() / cp.abs(h.mean())
-                print("Iteration %d, Residual %.3e" % (i, residual))
-                if residual < error_tolerance:
-                    is_finished = True
-                    print(
-                        "Stop iterate at %d steps, residual %.3e smaller than tolerance %.3e"
-                        % (i, residual, error_tolerance)
-                    )
-            i += 1
+            if epoch % log_freq == 0:
+                residual = float(cp.abs(gamma - gamma_pre).mean().get())
+                is_finished = self._check_and_log(epoch, residual, error_tolerance)
+            epoch += 1
+
+        e = time.time()
+        print("Run solve() for %s s" % (e - s))
+        h = gamma + c
         return h, c
