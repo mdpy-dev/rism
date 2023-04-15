@@ -103,7 +103,7 @@ class OZSolventPicard3DSolver:
     def solve(
         self,
         coordinate,
-        iterations,
+        max_iterations,
         error_tolerance=1e-5,
         log_freq=10,
         alt=0.9,
@@ -113,7 +113,7 @@ class OZSolventPicard3DSolver:
 
         Args:
             coordinate (`cp.ndarray` or `np.ndarray`): center coordinate of target
-            iterations (`int`): number of iterations
+            max_iterations (`int`): max number of iterations
             error_tolerance (`float`, optional): the error tolerance of iteration. Defaults to 1e-5.
             log_freq (`int`, optional): frequency of showing residual, no verbose when set to -1. Defaults to 10.
             alt (`float`, optional): relaxation coefficient. Defaults to 0.9.
@@ -142,7 +142,7 @@ class OZSolventPicard3DSolver:
         alta, altb = CUPY_FLOAT(alt), CUPY_FLOAT(1 - alt)
         s = time.time()
 
-        while epoch < iterations and not is_finished:
+        while epoch < max_iterations and not is_finished:
             ck = fft.fftn(c)
             gamma_k = factor * ck**2 / (1 - factor * ck)
             gamma_pre = gamma.copy()

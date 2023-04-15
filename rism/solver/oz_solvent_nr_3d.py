@@ -174,7 +174,7 @@ class OZSolventNR3DSSolver:
     def solve(
         self,
         coordinate,
-        iterations,
+        max_iterations,
         error_tolerance=1e-5,
         log_freq=10,
         restart_value=None,
@@ -186,7 +186,7 @@ class OZSolventNR3DSSolver:
 
         Args:
             coordinate (`cp.ndarray` or `np.ndarray`): center coordinate of target
-            iterations (`int`): number of iterations
+            max_iterations (`int`): max number of iterations
             error_tolerance (`float`, optional): the error tolerance of iteration. Defaults to 1e-5.
             log_freq (`int`, optional): frequency of showing residual, no verbose when set to -1. Defaults to 10.
             restart_value (`tuple`, optional): (h, c) to define start point of iterations. Defaults to None as using an internal initial guess.
@@ -225,7 +225,7 @@ class OZSolventNR3DSSolver:
 
         total_epoch, is_finished = 0, False
         s = time.time()
-        while total_epoch < iterations and not is_finished:
+        while total_epoch < max_iterations and not is_finished:
             nr_epoch = 0
             while nr_epoch < nr_max_iterations:
                 # New gamma from alpha and delta_gamma
