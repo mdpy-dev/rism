@@ -83,7 +83,7 @@ class OZSolventNR3DSSolver:
             + (self._grid.y - coordinate[1]) ** 2
             + (self._grid.z - coordinate[2]) ** 2
         )
-        u = vdw.evaluate(r, Quantity(10, kilocalorie_permol))
+        u = vdw.evaluate(r, Quantity(50, kilocalorie_permol))
         return self._tensor_from_cupy(u)
 
     def _get_conjugate_set(self, basis_set):
@@ -234,7 +234,8 @@ class OZSolventNR3DSSolver:
                     gamma += alpha[i] * self._basis_set[i]
                 gamma += delta_gamma
                 # c
-                c = (exp_u - 1) * (gamma + 1)
+                # c = (exp_u - 1) * (gamma + 1)
+                c = exp_u * tc.exp(gamma) - gamma - 1
                 ck = fft.fftn(c)
                 # gamma'
                 gamma_prime_k = factor * ck**2 / (1 - factor * ck)
@@ -284,7 +285,8 @@ class OZSolventNR3DSSolver:
                 delta_gamma -= alpha[i] * self._basis_set[i]
         e = time.time()
         print("Run solve() for %s s" % (e - s))
-        c = (exp_u - 1) * (gamma + 1)
+        c = exp_u * tc.exp(gamma) - gamma - 1
+        # c = (exp_u - 1) * (gamma + 1)
         return self._cupy_from_tensor(c + gamma), self._cupy_from_tensor(c)
 
     def visualize(self, c, gamma, alpha, is_2d=True):

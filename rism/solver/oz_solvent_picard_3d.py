@@ -57,7 +57,7 @@ class OZSolventPicard3DSolver:
             + (self._grid.y - coordinate[1]) ** 2
             + (self._grid.z - coordinate[2]) ** 2
         )
-        u = vdw.evaluate(r, Quantity(10, kilocalorie_permol))
+        u = vdw.evaluate(r, Quantity(50, kilocalorie_permol))
         return u.astype(CUPY_FLOAT)
 
     def _get_convolve_shift(self):
