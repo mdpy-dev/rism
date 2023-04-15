@@ -246,12 +246,7 @@ class OZSolventNR3DSSolver:
                     alpha_prime[i] = (self._conjugate_set[i] * gamma_prime).sum()
                 # Loss
                 loss = (alpha - alpha_prime).abs()
-                if loss.mean() <= nr_tolerance:
-                    print(
-                        "\t(Inner NR) Stop NR iterate at %d steps, d_alpha %.3e smaller than tolerance %.3e"
-                        % (total_epoch, loss.mean(), nr_tolerance)
-                    )
-                    break
+                nr_residual = loss.mean().detach()
                 jacobian = self._zeros((self._num_basis, self._num_basis))
                 for i in range(self._num_basis):
                     jacobian[i, :] = grad(loss[i], alpha, retain_graph=True)[0]
@@ -267,15 +262,21 @@ class OZSolventNR3DSSolver:
                     alpha = alpha - tc.matmul(inv_jacobian, loss) * nr_step_size
                 alpha.requires_grad_(True)
 
+                nr_epoch += 1
+                total_epoch += 1
+                if nr_residual <= nr_tolerance:
+                    print(
+                        "\t(Inner NR) Stop NR iterate at %d steps, d_alpha %.3e smaller than tolerance %.3e"
+                        % (total_epoch, nr_residual, nr_tolerance)
+                    )
+                    break
+
                 # Verbose
                 if total_epoch % log_freq == 0:
                     residual = float((gamma_prime - gamma).abs().mean())
                     is_finished = self._check_and_log(
                         total_epoch, residual, error_tolerance
                     )
-
-                nr_epoch += 1
-                total_epoch += 1
 
             # delta_gamma_prime
             delta_gamma = tc.clone(gamma_prime)
