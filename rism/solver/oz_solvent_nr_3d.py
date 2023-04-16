@@ -182,7 +182,7 @@ class OZSolventNR3DSSolver:
         nr_step_size=0.1,
         nr_tolerance=1e-3,
     ):
-        """conduct Picard iteration for the 3D-Ornstein-Zernike equation.
+        """conduct Newton-Raphson iteration for the 3D-Ornstein-Zernike equation.
 
         Args:
             coordinate (`cp.ndarray` or `np.ndarray`): center coordinate of target
@@ -207,7 +207,7 @@ class OZSolventNR3DSSolver:
 
         if restart_value is None:
             gamma = self._zeros(self._grid.shape)
-            c = (exp_u - 1) * (gamma + 1)
+            c = self._closure(exp_u, gamma)
             ck = fft.fftn(c)
             gamma_k = factor * ck**2 / (1 - factor * ck)
             gamma = tc.real(fft.ifftn(gamma_k))
@@ -234,8 +234,7 @@ class OZSolventNR3DSSolver:
                     gamma += alpha[i] * self._basis_set[i]
                 gamma += delta_gamma
                 # c
-                # c = (exp_u - 1) * (gamma + 1)
-                c = exp_u * tc.exp(gamma) - gamma - 1
+                c = self._closure(exp_u, gamma)
                 ck = fft.fftn(c)
                 # gamma'
                 gamma_prime_k = factor * ck**2 / (1 - factor * ck)
@@ -285,8 +284,7 @@ class OZSolventNR3DSSolver:
                 delta_gamma -= alpha[i] * self._basis_set[i]
         e = time.time()
         print("Run solve() for %s s" % (e - s))
-        c = exp_u * tc.exp(gamma) - gamma - 1
-        # c = (exp_u - 1) * (gamma + 1)
+        c = self._closure(exp_u, gamma)
         return self._cupy_from_tensor(c + gamma), self._cupy_from_tensor(c)
 
     def visualize(self, c, gamma, alpha, is_2d=True):
