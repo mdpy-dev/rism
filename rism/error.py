@@ -28,3 +28,14 @@ class UnregisteredParticleError(Exception):
     """
 
     pass
+
+
+class ClosureInputError(Exception):
+    """This error occurs when:
+    - The input of closure function is not supported.
+
+    Used in:
+    - rism.closure
+    """
+
+    pass
