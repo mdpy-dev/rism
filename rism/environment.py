@@ -10,7 +10,7 @@ copyright : (C)Copyright 2021-present, mdpy organization
 import cupy as cp
 import numpy as np
 import numba as nb
-import numba.cuda as cuda
+import torch as tc
 
 precision = "single"
 
@@ -22,9 +22,11 @@ if precision == "single":
     CUPY_FLOAT = cp.float32
     NUMBA_FLOAT = nb.float32
     NUMPY_FLOAT = np.float32
+    TORCH_FLOAT = tc.float32
     CUPY_INT = cp.int32
     NUMBA_INT = nb.int32
     NUMPY_INT = np.int32
+    TORCH_INT = tc.int32
     CUPY_UINT = cp.uint32
     NUMBA_UINT = nb.uint32
     NUMPY_UINT = np.uint32
@@ -32,9 +34,11 @@ elif precision == "double":
     CUPY_FLOAT = cp.float64
     NUMBA_FLOAT = nb.float64
     NUMPY_FLOAT = np.float64
+    TORCH_FLOAT = tc.float64
     CUPY_INT = cp.int64
     NUMBA_INT = nb.int64
     NUMPY_INT = np.int64
+    TORCH_INT = tc.int64
     CUPY_UINT = cp.uint64
     NUMBA_UINT = nb.uint64
     NUMPY_UINT = np.uint64
