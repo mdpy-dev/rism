@@ -63,3 +63,4 @@ def check_particle_type(particle_type: str):
 
 from rism.potential.vdw import VDWPotential
 from rism.potential.rvdw import RVDWPotential
+from rism.potential.ele import ElePotential
