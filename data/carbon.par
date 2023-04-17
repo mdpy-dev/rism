@@ -1,0 +1,16 @@
+ATOMS
+! 12.0107
+MASS  1   CA    12.0107
+
+BONDS
+!V(bond) = Kb(b - b0)**2
+!
+!atom type Kb          b0
+BONDS
+CA CA 469.000 1.418
+
+NONBONDED
+! 0.070 3.55
+CA 0.0 -0.070 1.992
+
+END
