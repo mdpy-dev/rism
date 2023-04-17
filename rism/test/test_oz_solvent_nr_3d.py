@@ -63,14 +63,14 @@ if __name__ == "__main__":
     center = np.array([0, 0, 0])
     grid = FFTGrid(x=[-20, 20, 256], y=[-20, 20, 256], z=[-20, 20, 256])
     rho_b = Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton) / NA
-    closure = rism.closure.percus_yevick
+    closure = rism.closure.kovalenko_hirata
 
     r = cp.sqrt(
         (grid.x - center[0]) ** 2
         + (grid.y - center[1]) ** 2
         + (grid.z - center[2]) ** 2
     )
-    basis_set = [get_basis(r, i, 1.0) for i in [0, 1.5, 2.5]]
+    basis_set = [get_basis(r, i, 1.0) for i in [0, 1.0, 1.5, 2.5]]
     # basis_set += [get_basis(r, i, 0.5) for i in np.arange(2.5, 6, 0.5)]
 
     solver = OZSolventNR3DSSolver(
@@ -83,12 +83,12 @@ if __name__ == "__main__":
     )
     h, c = solver.solve(
         center,
-        iterations=500,
+        max_iterations=500,
         log_freq=10,
-        error_tolerance=1e-4,
+        error_tolerance=5e-5,
         nr_max_iterations=50,
         nr_step_size=0.5,
-        nr_tolerance=0.001,
+        nr_tolerance=0.0005,
     )
 
     visualize(grid, h, c, False)

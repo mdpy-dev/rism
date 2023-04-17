@@ -52,16 +52,16 @@ if __name__ == "__main__":
     temperature = 300
     grid = FFTGrid(x=[-20, 20, 256], y=[-20, 20, 256], z=[-20, 20, 256])
     rho_b = Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton) / NA
-    closure = rism.closure.percus_yevick
+    closure = rism.closure.kovalenko_hirata
 
     solver = OZSolventPicard3DSolver(
         grid=grid,
         closure=closure,
         temperature=temperature,
-        solvent_type="o",
+        solvent_type="h",
         rho_b=rho_b,
     )
-    h, c = solver.solve(np.array([0, 0, 0]), iterations=1000, error_tolerance=1e-4)
+    h, c = solver.solve(np.array([0, 0, 0]), max_iterations=1000, error_tolerance=1e-7)
     visualize(grid, h, c, False)
     # h, c = solver.solve(np.array([0, 0, 0]), iterations=500, restart_value=(h, c))
     # visualize(grid, h, c, False)
