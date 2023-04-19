@@ -83,7 +83,7 @@ class OZSolventNR3DSSolver:
             + (self._grid.y - coordinate[1]) ** 2
             + (self._grid.z - coordinate[2]) ** 2
         )
-        u = vdw.evaluate(r, Quantity(50, kilocalorie_permol))
+        u = vdw.evaluate(r, Quantity(-1, kilocalorie_permol))
         return self._tensor_from_cupy(u)
 
     def _get_conjugate_set(self, basis_set):
@@ -273,7 +273,7 @@ class OZSolventNR3DSSolver:
 
                 # Verbose
                 if total_epoch % log_freq == 0:
-                    residual = float((gamma_prime - gamma).abs().mean())
+                    residual = float(tc.sqrt(((gamma - gamma_prime) ** 2).mean()))
                     is_finished = self._check_and_log(
                         total_epoch, residual, error_tolerance
                     )

@@ -57,7 +57,7 @@ class OZSolventPicard3DSolver:
             + (self._grid.y - coordinate[1]) ** 2
             + (self._grid.z - coordinate[2]) ** 2
         )
-        u = vdw.evaluate(r, Quantity(50, kilocalorie_permol))
+        u = vdw.evaluate(r, Quantity(-1, kilocalorie_permol))
         return u.astype(CUPY_FLOAT)
 
     def _get_convolve_shift(self):
@@ -151,7 +151,7 @@ class OZSolventPicard3DSolver:
             c, c_pre = self._closure(exp_u, gamma), c
 
             if epoch % log_freq == 0:
-                residual = float(cp.abs(gamma - gamma_pre).mean().get())
+                residual = float(cp.sqrt(((gamma - gamma_pre) ** 2).mean()).get())
                 is_finished = self._check_and_log(epoch, residual, error_tolerance)
             epoch += 1
 
