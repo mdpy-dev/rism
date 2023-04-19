@@ -62,8 +62,8 @@ if __name__ == "__main__":
     temperature = 300
     center = np.array([0, 0, 0])
     grid = FFTGrid(x=[-20, 20, 256], y=[-20, 20, 256], z=[-20, 20, 256])
-    rho_b = Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton) / NA
-    closure = rism.closure.kovalenko_hirata
+    rho_b = Quantity(1.314, kilogram / decimeter**3) / Quantity(18, dalton) / NA
+    closure = rism.closure.hnc
 
     r = cp.sqrt(
         (grid.x - center[0]) ** 2
@@ -85,7 +85,7 @@ if __name__ == "__main__":
         center,
         max_iterations=500,
         log_freq=10,
-        error_tolerance=5e-5,
+        error_tolerance=1e-5,
         nr_max_iterations=50,
         nr_step_size=0.5,
         nr_tolerance=0.0005,

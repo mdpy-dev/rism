@@ -58,10 +58,10 @@ if __name__ == "__main__":
         grid=grid,
         closure=closure,
         temperature=temperature,
-        solvent_type="h",
+        solvent_type="o",
         rho_b=rho_b,
     )
-    h, c = solver.solve(np.array([0, 0, 0]), max_iterations=1000, error_tolerance=1e-7)
+    h, c = solver.solve(np.array([0, 0, 0]), max_iterations=1000, error_tolerance=1e-5)
     visualize(grid, h, c, False)
     # h, c = solver.solve(np.array([0, 0, 0]), iterations=500, restart_value=(h, c))
     # visualize(grid, h, c, False)
