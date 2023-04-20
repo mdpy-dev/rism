@@ -8,37 +8,84 @@ copyright : (C)Copyright 2021-present, mdpy organization
 """
 
 
+import math
 import cupy as cp
 import numpy as np
+from cupyx.scipy.special import erf, erfc
 from rism.potential import FF_DICT, check_particle_type
 from rism.unit import *
 from rism.environment import *
 
 
 class ElePotential:
-    def __init__(self, type1: str, type2: str) -> None:
+    def __init__(
+        self,
+        type1: str,
+        type2: str,
+        r_cut=Quantity(10, angstrom),
+        direct_sum_energy_tolerance=1e-5,
+    ) -> None:
         self._type1 = check_particle_type(type1)
         self._type2 = check_particle_type(type2)
+        self._r_cut = check_quantity_value(r_cut, default_length_unit)
+        self._direct_sum_energy_tolerance = direct_sum_energy_tolerance
+        self._alpha = self._get_ewald_coefficient()
         self._q1, self._q2 = self._get_ele_parameter()
         self._epsilon0 = EPSILON0.convert_to(
             default_charge_unit**2 / default_energy_unit / default_length_unit
         ).value
+        print(self._epsilon0)
         self._factor = CUPY_FLOAT(self._q1 * self._q2 / (4 * np.pi * self._epsilon0))
 
     def _get_ele_parameter(self):
-        q1 = check_quantity_value(FF_DICT[self._type1]["val"], default_charge_unit)
-        q2 = check_quantity_value(FF_DICT[self._type2]["val"], default_charge_unit)
+        q1 = check_quantity_value(FF_DICT[self._type1]["q"], default_charge_unit)
+        q2 = check_quantity_value(FF_DICT[self._type2]["q"], default_charge_unit)
         return (CUPY_FLOAT(q1), CUPY_FLOAT(q2))
 
-    def evaluate(self, dist, threshold=Quantity(10.5, kilocalorie_permol)):
+    def _get_ewald_coefficient(self):
+        """
+        Using Newton iteration to solve the ewald coefficient:
+
+        The Ewald coefficient is essentially a mathematical representation of 1/2s, where s represents the width of the Gaussian function used to smooth out charges on the grid. The value of s is carefully chosen such that, at the interaction `r_cut`, the interactions between two Gaussian-smoothed charges and two point charges are equivalent up to a precision of direct_sum_energy_tolerance. This ensures that the interactions between these four charge sites are small enough, indicating that truncation of the interactions will not result in a significant error.
+
+        f(alpha) = erfc(alpha*r_cut) / r_cut - direct_sum_energy_tolerance
+        f'(alpha) = - 2/sqrt(pi) * exp[-(alpha*r_cut)^2]
+
+        alpha_new = alpha_old - f(alpha_old) / f'(alpha_old)
+        """
+        alpha = 0.1
+        sqrt_pi = np.sqrt(np.pi)
+        while True:
+            f = (
+                math.erfc(alpha * self._r_cut) / self._r_cut
+                - self._direct_sum_energy_tolerance
+            )
+            df = -2 * np.exp(-((alpha * self._r_cut) ** 2)) / sqrt_pi
+            d_alpha = f / df
+            if np.abs(d_alpha / alpha) < 1e-5:
+                break
+            alpha -= d_alpha
+        return CUPY_FLOAT(alpha)
+
+    def evaluate(self, dist, threshold=Quantity(10.0, kilocalorie_permol)):
         if not isinstance(dist, cp.ndarray):
             dist = cp.array(dist, CUPY_FLOAT)
         threshold = check_quantity_value(threshold, default_energy_unit)
-        ele = self._factor / (dist + 1e-10)
+        ele = self._factor / (dist + 1e-5)
         if threshold > 0:
             ele[ele > threshold] = threshold
             ele[ele < -threshold] = -threshold
         return ele.astype(CUPY_FLOAT)
+
+    def evaluate_short(self, dist, threshold=Quantity(10.0, kilocalorie_permol)):
+        ele = self.evaluate(dist, threshold=threshold)
+        factor = erfc(dist * self._alpha)
+        return (ele * factor).astype(CUPY_FLOAT)
+
+    def evaluate_long(self, dist, threshold=Quantity(10.0, kilocalorie_permol)):
+        ele = self.evaluate(dist, threshold=threshold)
+        factor = erf(dist * self._alpha)
+        return (ele * factor).astype(CUPY_FLOAT)
 
     @property
     def type1(self):
