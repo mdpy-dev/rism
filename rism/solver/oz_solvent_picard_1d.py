@@ -60,9 +60,10 @@ class OZSolventPicard1DSolver:
 
     def _fsint(self, target):
         n = target.shape[0]
-        # target function is i * fi or j * Fj
-        # we need to add 0 as we ignore the zero point of the f
-        # otherwise, the f1 or F1 point will be treat as the zero point
+        # If we do not add point for i=0, value at i=1 will be ignored
+        # as the integration turn from f0*sin(0) + f1*sin(k)
+        # to f1*sin(0) + f2*sin(k)
+        # As the function of target has form i * fi, so the value for i = 0 is 0
         fft_target = cp.hstack([cp.array([0]), target])
         res = -cp.imag(fft.fft(fft_target, n=(2 * n + 1)))[1 : n + 1]
         return res
@@ -113,6 +114,8 @@ class OZSolventPicard1DSolver:
         epoch, is_finished = 0, False
         alta, altb = CUPY_FLOAT(alt), CUPY_FLOAT(1 - alt)
         s = time.time()
+        # To avoid the singularity point in zero index, we use 1:N+1 as the index
+        # Hence the lr, appearing in calculation of k, is dr * (N+1)
         lr = self._grid.dr * (self._grid.shape[0] + 1)
         i_vec = cp.arange(1, self._grid.shape[0] + 1)
         j_vec = cp.arange(1, self._grid.shape[0] + 1)
