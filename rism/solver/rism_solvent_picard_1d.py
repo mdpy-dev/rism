@@ -72,6 +72,29 @@ class RISMSolventPicard1DSolver:
     def _get_empty_matrix(self, shape, dtype=CUPY_FLOAT):
         return cp.zeros([self._num_sites, self._num_sites] + shape, dtype)
 
+    def _fsint(self, target):
+        n = target.shape[0]
+        # If we do not add point for i=0, value at i=1 will be ignored
+        # as the integration turn from f0*sin(0) + f1*sin(k)
+        # to f1*sin(0) + f2*sin(k)
+        # As the function of target has form i * fi, so the value for i = 0 is 0
+        fft_target = cp.hstack([cp.array([0]), target])
+        res = -cp.imag(fft.fft(fft_target, n=(2 * n + 1)))[1 : n + 1]
+        return res
+
+    def _transform_matrix(self, matrix, mode):
+        res = self._get_empty_matrix(self._grid.shape)
+        if mode == "forward":
+            vec = self._transform_coefficient[0]
+            factor = self._transform_coefficient[1]
+        elif mode == "backward":
+            vec = self._transform_coefficient[2]
+            factor = self._transform_coefficient[3]
+        for i in range(self._num_sites):
+            for j in range(self._num_sites):
+                res[i, j] = self._fsint(matrix[i, j] * vec) * factor
+        return res
+
     def _get_bond_length(self):
         length = self._get_empty_matrix([])
         for i in range(self._num_sites):
@@ -148,29 +171,6 @@ class RISMSolventPicard1DSolver:
         residual = gamma_matrix - gamma_matrix_new
         return gamma_matrix_new, residual
 
-    def _fsint(self, target):
-        n = target.shape[0]
-        # If we do not add point for i=0, value at i=1 will be ignored
-        # as the integration turn from f0*sin(0) + f1*sin(k)
-        # to f1*sin(0) + f2*sin(k)
-        # As the function of target has form i * fi, so the value for i = 0 is 0
-        fft_target = cp.hstack([cp.array([0]), target])
-        res = -cp.imag(fft.fft(fft_target, n=(2 * n + 1)))[1 : n + 1]
-        return res
-
-    def _transform_matrix(self, matrix, mode):
-        res = self._get_empty_matrix(self._grid.shape)
-        if mode == "forward":
-            vec = self._transform_coefficient[0]
-            factor = self._transform_coefficient[1]
-        elif mode == "backward":
-            vec = self._transform_coefficient[2]
-            factor = self._transform_coefficient[3]
-        for i in range(self._num_sites):
-            for j in range(self._num_sites):
-                res[i, j] = self._fsint(matrix[i, j] * vec) * factor
-        return res
-
     def _check_and_log(self, epoch, residual, error_tolerance):
         print("Iteration %d, Residual %.3e" % (epoch, residual))
         is_finished = residual < error_tolerance
@@ -184,7 +184,6 @@ class RISMSolventPicard1DSolver:
     def solve(
         self,
         max_iterations,
-        subspace_size=10,
         error_tolerance=1e-5,
         log_freq=10,
         alt=0.9,
