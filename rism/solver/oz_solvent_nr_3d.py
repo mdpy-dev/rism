@@ -224,10 +224,11 @@ class OZSolventNR3DSSolver:
         alpha.requires_grad_(True)
 
         total_epoch, is_finished = 0, False
+        min_residual, min_epoch, min_res = 1, 0, []
         s = time.time()
         while total_epoch < max_iterations and not is_finished:
             nr_epoch = 0
-            while nr_epoch < nr_max_iterations:
+            while nr_epoch < nr_max_iterations and not is_finished:
                 # New gamma from alpha and delta_gamma
                 gamma = self._zeros(self._grid.shape)
                 for i in range(self._num_basis):
@@ -254,10 +255,12 @@ class OZSolventNR3DSSolver:
                 inv_jacobian, is_un_inv = tc.linalg.inv_ex(jacobian)
                 if is_un_inv:
                     print(
-                        "\t(Inner NR) Singularity Jacobian at iteration %d"
+                        "\t(Inner NR) Stop NR iterate at %d steps, Singularity Jacobian"
                         % total_epoch
                     )
-                    alpha = alpha - dl_da * 0.01
+                    alpha = tc.clone(alpha)
+                    alpha.requires_grad_(True)
+                    break
                 else:
                     alpha = alpha - tc.matmul(inv_jacobian, loss) * nr_step_size
                 alpha.requires_grad_(True)
@@ -274,18 +277,26 @@ class OZSolventNR3DSSolver:
                 # Verbose
                 if total_epoch % log_freq == 0:
                     residual = float(tc.sqrt(((gamma - gamma_prime) ** 2).mean()))
+                    if min_residual > residual:
+                        min_residual = residual
+                        min_epoch = total_epoch
+                        min_res = [tc.clone(gamma), tc.clone(c)]
                     is_finished = self._check_and_log(
                         total_epoch, residual, error_tolerance
                     )
+                    is_finished |= residual >= 10 * min_residual
 
             # delta_gamma_prime
             delta_gamma = tc.clone(gamma_prime)
             for i in range(self._num_basis):
                 delta_gamma -= alpha[i] * self._basis_set[i]
         e = time.time()
+        print(
+            "Residual %.3e achieve the minimum at step %d" % (min_residual, min_epoch)
+        )
         print("Run solve() for %s s" % (e - s))
-        c = self._closure(exp_u, gamma)
-        return self._cupy_from_tensor(c + gamma), self._cupy_from_tensor(c)
+        h = min_res[0] + min_res[1]
+        return self._cupy_from_tensor(h), self._cupy_from_tensor(min_res[1])
 
     def visualize(self, c, gamma, alpha, is_2d=True):
         import matplotlib
