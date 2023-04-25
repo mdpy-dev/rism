@@ -24,12 +24,16 @@ class ElePotential:
         type2: str,
         r_cut=Quantity(10, angstrom),
         direct_sum_energy_tolerance=1e-5,
+        alpha=None,
     ) -> None:
         self._type1 = check_particle_type(type1)
         self._type2 = check_particle_type(type2)
         self._r_cut = check_quantity_value(r_cut, default_length_unit)
         self._direct_sum_energy_tolerance = direct_sum_energy_tolerance
-        self._alpha = self._get_ewald_coefficient()
+        if alpha is None:
+            self._alpha = self._get_ewald_coefficient()
+        else:
+            self._alpha = alpha
         self._q1, self._q2 = self._get_ele_parameter()
         self._epsilon0 = EPSILON0.convert_to(
             default_charge_unit**2 / default_energy_unit / default_length_unit
@@ -77,15 +81,20 @@ class ElePotential:
             ele[ele < -threshold] = -threshold
         return ele.astype(CUPY_FLOAT)
 
-    def evaluate_short(self, dist, threshold=Quantity(10.0, kilocalorie_permol)):
+    def evaluate_sr(self, dist, threshold=Quantity(10.0, kilocalorie_permol)):
         ele = self.evaluate(dist, threshold=threshold)
         factor = erfc(dist * self._alpha)
         return (ele * factor).astype(CUPY_FLOAT)
 
-    def evaluate_long(self, dist, threshold=Quantity(10.0, kilocalorie_permol)):
+    def evaluate_lr(self, dist, threshold=Quantity(10.0, kilocalorie_permol)):
         ele = self.evaluate(dist, threshold=threshold)
         factor = erf(dist * self._alpha)
         return (ele * factor).astype(CUPY_FLOAT)
+
+    def evaluate_lr_k(self, k):
+        res = 4 * cp.pi * self._factor / k**2
+        res *= cp.exp(-((k / 2 / self._alpha) ** 2))
+        return res.astype(CUPY_FLOAT)
 
     @property
     def type1(self):

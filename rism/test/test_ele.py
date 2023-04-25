@@ -8,12 +8,13 @@ copyright : (C)Copyright 2021-present, mdpy organization
 """
 
 
+from cProfile import label
 import pytest
 import cupy as cp
 import numpy as np
 import matplotlib.pyplot as plt
 from rism.environment import CUPY_FLOAT
-from rism.potential import ElePotential
+from rism.potential import ElePotential, VDWPotential
 from rism.unit import *
 from rism.error import *
 
@@ -48,10 +49,26 @@ class TestVDWPotential:
 
 if __name__ == "__main__":
 
-    ele = ElePotential(type1="k", type2="o")
+    ele = ElePotential(type1="o", type2="o", alpha=1.0)
+    vdw = VDWPotential(type1="o", type2="o")
     print(ele.q1, ele.q2)
     r = cp.arange(1, 20, 0.1)
-    u = ele.evaluate(r, threshold=Quantity(100, kilocalorie_permol))
+    u_long = ele.evaluate_lr(r, threshold=Quantity(-1, kilocalorie_permol))
+    u_short = ele.evaluate_sr(r, threshold=Quantity(-1, kilocalorie_permol))
+    u = ele.evaluate(r, threshold=Quantity(-1, kilocalorie_permol))
+    u_vdw = vdw.evaluate(r, threshold=Quantity(-1, kilocalorie_permol))
     convert = (Quantity(300, kelvin) * KB).convert_to(default_energy_unit).value
-    plt.plot(r.get(), u.get() / convert, ".-")
+    plt.plot(r.get(), u.get() / convert, ".-", label="origin")
+    plt.plot(r.get(), u_long.get() / convert, ".-", label="long range", alpha=0.5)
+    plt.plot(r.get(), u_short.get() / convert, ".-", label="short range", alpha=0.5)
+    plt.plot(
+        r.get(),
+        (u_short + u_vdw).get() / convert,
+        ".-",
+        label="short + vdw range",
+        alpha=0.5,
+    )
+
+    plt.ylim(-1000, 1000)
+    plt.legend()
     plt.show()
