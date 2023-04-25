@@ -7,6 +7,7 @@ __license__ = "BSD-3"
 # 1D OZ
 from rism.solver.oz_solvent_picard_1d import OZSolventPicard1DSolver
 from rism.solver.oz_polar_solvent_picard_1d import OZPolarSolventPicard1DSolver
+from rism.solver.oz_polar_solvent_nr_1d import OZPolarSolventNR1DSolver
 
 # 3D OZ
 from rism.solver.oz_solvent_picard_3d import OZSolventPicard3DSolver
