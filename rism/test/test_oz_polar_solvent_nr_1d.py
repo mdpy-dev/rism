@@ -47,7 +47,6 @@ if __name__ == "__main__":
     grid = FFTGrid(r=[0, 40, 2048])
     rho_b = Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton) / NA
     closure = rism.closure.kovalenko_hirata
-    alpha = 0.8
     basis_set = [get_basis(grid.r, i, 1.0) for i in [0, 0.75, 1.5, 2.25]]
 
     solver = OZPolarSolventNR1DSolver(
@@ -69,12 +68,25 @@ if __name__ == "__main__":
     )
 
     fig, ax = visualize(grid, h, c)
-    # h, c = solver.solve(
-    #     max_iterations=1000, error_tolerance=1e-5, log_freq=50, alpha=0.8
-    # )
-    # visualize(grid, h, c, (fig, ax))
-    # h, c = solver.solve(
-    #     max_iterations=1000, error_tolerance=1e-5, log_freq=50, alpha=1.1
-    # )
-    # visualize(grid, h, c, (fig, ax))
+    h, c = solver.solve(
+        max_iterations=1000,
+        error_tolerance=1e-5,
+        log_freq=10,
+        alpha=0.8,
+        nr_max_iterations=100,
+        nr_step_size=0.1,
+        nr_tolerance=5e-5,
+    )
+    visualize(grid, h, c, (fig, ax))
+
+    h, c = solver.solve(
+        max_iterations=1000,
+        error_tolerance=1e-5,
+        log_freq=10,
+        alpha=0.9,
+        nr_max_iterations=100,
+        nr_step_size=0.05,
+        nr_tolerance=5e-5,
+    )
+    visualize(grid, h, c, (fig, ax))
     plt.show()
