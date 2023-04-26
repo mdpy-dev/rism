@@ -1,12 +1,10 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 """
-file : rism_solvent_diss_1d.py
+file : rism_solvent_picard_1d.py
 created time : 2023/04/19
 author : Zhenyu Wei
-version : 1.0
-contact : zhenyuwei99@gmail.com
-copyright : (C)Copyright 2021-present, Zhenyu Wei and Southeast University
+copyright : (C)Copyright 2021-present, mdpy organization
 """
 
 
