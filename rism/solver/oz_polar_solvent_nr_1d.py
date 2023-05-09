@@ -10,7 +10,6 @@ copyright : (C)Copyright 2021-present, mdpy organization
 
 import time
 import cupy as cp
-from numpy import dtype
 import torch as tc
 import torch.fft as fft
 from torch.autograd import grad
