@@ -50,7 +50,7 @@ if __name__ == "__main__":
     temperature = 300
     grid = FFTGrid(r=[0, 20, 2048])
     rho_b = Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton) / NA
-    closure = rism.closure.kovalenko_hirata
+    closure = rism.closure.hnc
     solvent = get_solvent()
 
     solver = RISMSolventPicard1DSolver(
