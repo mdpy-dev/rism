@@ -105,19 +105,19 @@ class RISMSolventDIIS1DSolver:
         return length
 
     def _get_w_k_matrix(self):
-        freq = fft.fftfreq(self._grid.shape[0], self._grid.dr)
-        w = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
+        j_vec = cp.arange(1, self._grid.shape[0] + 1)
+        w_k = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
         for i in range(self._num_sites):
             for j in range(i, self._num_sites):
                 if i != j:
                     # Denominator ensure the convolution normalized
-                    target = cp.exp(-2j * cp.pi * freq * self._bond_length[i, j])
-                    target = cp.real(fft.ifft(target))
-                    w[i, j] = target.copy()
-                    w[j, i] = target.copy()
+                    kr = j_vec * self._bond_length[i, j]
+                    target = cp.sin(kr) / kr
+                    w_k[i, j] = target.copy()
+                    w_k[j, i] = target.copy()
                 else:
-                    w[i, j] = cp.zeros_like(self._grid.r)
-        return self._transform_matrix(w, "forward")
+                    w_k[i, j] = cp.ones(self._grid.shape)
+        return w_k
 
     def _get_exp_u_matrix(self):
         exp_u = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
@@ -133,29 +133,31 @@ class RISMSolventDIIS1DSolver:
 
     def _get_gamma_matrix(self, c_k_matrix, gamma_k_matrix):
         gamma_matrix = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
+        h_k_matrix = c_k_matrix + gamma_k_matrix
         for i in range(self._num_sites):
             for j in range(self._num_sites):
                 gamma_matrix[i, j] = self._get_site_gamma_k(
-                    c_k_matrix, gamma_k_matrix, i, j
+                    c_k_matrix, h_k_matrix, i, j
                 )
         return self._transform_matrix(gamma_matrix, "backward")
 
-    def _get_site_gamma_k(self, c_k_matrix, gamma_k_matrix, site1, site2):
-        factor = self._rho_b
-        denominator = 1 - factor * c_k_matrix[site1, site1]
+    def _get_site_gamma_k(self, c_k_matrix, h_k_matrix, site1, site2):
+        denominator = cp.zeros(self._grid.shape, CUPY_FLOAT)
         nominator = cp.zeros_like(denominator, dtype=CUPY_FLOAT)
         for i in range(self._num_sites):
-            if i != site1:
-                nominator += c_k_matrix[site1, i] * (
-                    self._w_k[i, site2]
-                    + factor * (gamma_k_matrix[i, site2] + c_k_matrix[i, site2])
-                )
-            else:
-                nominator += c_k_matrix[site1, i] * (
-                    self._w_k[i, site2] + factor * c_k_matrix[i, site2]
-                )
+            cur_nominator = cp.zeros(self._grid.shape, CUPY_FLOAT)
+            denominator += self._w_k[site1, i] * c_k_matrix[i, site1]
+            for j in range(self._num_sites):
+                if j != site1:
+                    cur_nominator += c_k_matrix[i, j] * (
+                        self._w_k[j, site2] + self._rho_b * h_k_matrix[j, site2]
+                    )
+                else:
+                    cur_nominator += c_k_matrix[i, j] * self._w_k[j, site2]
+            nominator += self._w_k[site1, i] * cur_nominator
+        denominator = CUPY_FLOAT(1) - denominator * self._rho_b
 
-        return nominator / denominator
+        return nominator / denominator - c_k_matrix[site1, site2]
 
     def _get_c_matrix(self, gamma_matrix):
         c_matrix = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
