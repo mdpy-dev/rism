@@ -23,14 +23,27 @@ def visualize(grid, h_matrix, c_matrix, site_list):
     num_sites = len(site_list)
     g_matrix = h_matrix + 1
     r = grid.r.get()
-    fig, ax = plt.subplots(num_sites, num_sites, figsize=[16, 16])
-    y_max = g_matrix.max().get() * 1.1
-    for i in range(num_sites):
-        for j in range(num_sites):
-            ax[i, j].plot(r, g_matrix[i, j].get(), ".-", label="g")
-            ax[i, j].set_title("%s-%s" % (site_list[i], site_list[j]))
-            ax[i, j].legend()
-            ax[i, j].set_ylim(0, y_max)
+
+    if True:
+        fig, ax = plt.subplots(1, 1, figsize=[16, 9])
+        for i in range(num_sites - 1):
+            for j in range(i, num_sites - 1):
+                ax.plot(
+                    r,
+                    g_matrix[i, j].get(),
+                    ".-",
+                    label="%s-%s" % (site_list[i], site_list[j]),
+                )
+                ax.legend()
+    else:
+        fig, ax = plt.subplots(num_sites, num_sites, figsize=[16, 16])
+        y_max = g_matrix.max().get() * 1.1
+        for i in range(num_sites):
+            for j in range(num_sites):
+                ax[i, j].plot(r, g_matrix[i, j].get(), ".-", label="g")
+                ax[i, j].set_title("%s-%s" % (site_list[i], site_list[j]))
+                ax[i, j].legend()
+                ax[i, j].set_ylim(0, y_max)
     fig.tight_layout()
     plt.show()
 
@@ -48,7 +61,7 @@ def get_solvent():
 
 if __name__ == "__main__":
     temperature = 300
-    grid = FFTGrid(r=[0, 20, 2048])
+    grid = FFTGrid(r=[0, 12, 512])
     rho_b = Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton) / NA
     closure = rism.closure.hnc
     solvent = get_solvent()
