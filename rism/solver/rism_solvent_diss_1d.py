@@ -61,6 +61,7 @@ class RISMSolventDIIS1DSolver:
         forward_factor = (4 * self._grid.dr**2 * lr) / j_vec
         backward_factor = 1 / (2 * lr**2 * self._grid.dr) / i_vec
         self._transform_coefficient = [i_vec, forward_factor, j_vec, backward_factor]
+        self._k = j_vec * cp.pi / (self._grid.shape[0] + 1) / self._grid.dr
 
         self._site_list = self._solvent.particle_list
         self._bond_length = self._get_bond_length()
@@ -69,6 +70,14 @@ class RISMSolventDIIS1DSolver:
 
     def _get_empty_matrix(self, shape, dtype=CUPY_FLOAT):
         return cp.zeros([self._num_sites, self._num_sites] + shape, dtype)
+
+    def _matmul(self, A, B):
+        res = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
+        for i in range(self._num_sites):
+            for j in range(self._num_sites):
+                for k in range(self._num_sites):
+                    res[i, j] += A[i, k] * B[k, j]
+        return res
 
     def _fsint(self, target):
         n = target.shape[0]
@@ -105,13 +114,11 @@ class RISMSolventDIIS1DSolver:
         return length
 
     def _get_w_k_matrix(self):
-        j_vec = cp.arange(1, self._grid.shape[0] + 1)
         w_k = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
         for i in range(self._num_sites):
             for j in range(i, self._num_sites):
                 if i != j:
-                    # Denominator ensure the convolution normalized
-                    kr = j_vec * self._bond_length[i, j]
+                    kr = self._k * self._bond_length[i, j]
                     target = cp.sin(kr) / kr
                     w_k[i, j] = target.copy()
                     w_k[j, i] = target.copy()
@@ -131,33 +138,16 @@ class RISMSolventDIIS1DSolver:
                     exp_u[j, i] = exp_u[i, j].copy()
         return exp_u
 
-    def _get_gamma_matrix(self, c_k_matrix, gamma_k_matrix):
-        gamma_matrix = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
-        h_k_matrix = c_k_matrix + gamma_k_matrix
+    def _get_gamma_matrix(self, c_k_matrix):
+        wc_k_matrix = self._matmul(self._w_k, c_k_matrix)
+        wcw_k_matrix = self._matmul(wc_k_matrix, self._w_k)
+        A = -wc_k_matrix * self._rho_b
         for i in range(self._num_sites):
-            for j in range(self._num_sites):
-                gamma_matrix[i, j] = self._get_site_gamma_k(
-                    c_k_matrix, h_k_matrix, i, j
-                )
+            A[i, i] += 1
+        inv_A = cp.linalg.inv(A.T).T
+        h_k_matrix = self._matmul(inv_A, wcw_k_matrix)
+        gamma_matrix = h_k_matrix - c_k_matrix
         return self._transform_matrix(gamma_matrix, "backward")
-
-    def _get_site_gamma_k(self, c_k_matrix, h_k_matrix, site1, site2):
-        denominator = cp.zeros(self._grid.shape, CUPY_FLOAT)
-        nominator = cp.zeros_like(denominator, dtype=CUPY_FLOAT)
-        for i in range(self._num_sites):
-            cur_nominator = cp.zeros(self._grid.shape, CUPY_FLOAT)
-            denominator += self._w_k[site1, i] * c_k_matrix[i, site1]
-            for j in range(self._num_sites):
-                if j != site1:
-                    cur_nominator += c_k_matrix[i, j] * (
-                        self._w_k[j, site2] + self._rho_b * h_k_matrix[j, site2]
-                    )
-                else:
-                    cur_nominator += c_k_matrix[i, j] * self._w_k[j, site2]
-            nominator += self._w_k[site1, i] * cur_nominator
-        denominator = CUPY_FLOAT(1) - denominator * self._rho_b
-
-        return nominator / denominator - c_k_matrix[site1, site2]
 
     def _get_c_matrix(self, gamma_matrix):
         c_matrix = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
@@ -168,7 +158,7 @@ class RISMSolventDIIS1DSolver:
 
     def _rism_forward(self, gamma_matrix, c_k_matrix):
         gamma_k_matrix = self._transform_matrix(gamma_matrix, "forward")
-        gamma_matrix_new = self._get_gamma_matrix(c_k_matrix, gamma_k_matrix)
+        gamma_matrix_new = self._get_gamma_matrix(c_k_matrix)
         residual = gamma_matrix - gamma_matrix_new
         return gamma_matrix_new, residual
 
@@ -206,7 +196,7 @@ class RISMSolventDIIS1DSolver:
         s = time.time()
         # Initialization of subspace
         gamma_matrix = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
-        for i in range(5 if 5 < subspace_size else subspace_size):
+        for i in range(3 if 3 < subspace_size else subspace_size):
             c_matrix = self._get_c_matrix(gamma_matrix)
             c_k_matrix = self._transform_matrix(c_matrix, "forward")
             gamma_matrix_new, residual = self._rism_forward(gamma_matrix, c_k_matrix)
@@ -247,6 +237,7 @@ class RISMSolventDIIS1DSolver:
             gamma_list = gamma_list[-subspace_size:]
             residual_list = residual_list[-subspace_size:]
             if epoch % log_freq == 0:
+                # self.visualize(self._w_k)
                 residual = float(cp.sqrt(((residual) ** 2).mean()).get())
                 is_finished = self._check_and_log(epoch, residual, error_tolerance)
         e = time.time()
@@ -258,20 +249,18 @@ class RISMSolventDIIS1DSolver:
     def site_list(self):
         return self._site_list
 
-    def visualize(self, gamma_matrix, c_matrix):
+    def visualize(self, matrix):
         import matplotlib.pyplot as plt
 
-        g_matrix = gamma_matrix + c_matrix + 1
         r = self._grid.r.get()
         fig, ax = plt.subplots(self._num_sites, self._num_sites, figsize=[16, 16])
-        y_max = g_matrix.max().get() * 1.1
+        y_max = matrix.max().get() * 1.1
+        y_min = matrix.min().get() * 1.1
         for i in range(self._num_sites):
             for j in range(self._num_sites):
-                # ax[i, j].plot(r, gamma_matrix[i, j].get(), ".-", label=r"$\gamma$")
-                # ax[i, j].plot(r, c_matrix[i, j].get(), ".-", label="c")
-                ax[i, j].plot(r, g_matrix[i, j].get(), ".-", label="g")
+                ax[i, j].plot(r, matrix[i, j].get(), ".-", label="g")
                 ax[i, j].set_title("%s-%s" % (self._site_list[i], self._site_list[j]))
                 ax[i, j].legend()
-                ax[i, j].set_ylim(0, y_max)
+                # ax[i, j].set_ylim(y_min, y_max)
         fig.tight_layout()
         plt.show()
