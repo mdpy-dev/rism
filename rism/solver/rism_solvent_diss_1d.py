@@ -156,8 +156,8 @@ class RISMSolventDIIS1DSolver:
                 c_matrix[i, j] = self._closure(self._exp_u[i, j], gamma_matrix[i, j])
         return c_matrix
 
-    def _rism_forward(self, gamma_matrix, c_k_matrix):
-        gamma_k_matrix = self._transform_matrix(gamma_matrix, "forward")
+    def _rism_forward(self, gamma_matrix, c_matrix):
+        c_k_matrix = self._transform_matrix(c_matrix, "forward")
         gamma_matrix_new = self._get_gamma_matrix(c_k_matrix)
         residual = gamma_matrix - gamma_matrix_new
         return gamma_matrix_new, residual
@@ -196,13 +196,12 @@ class RISMSolventDIIS1DSolver:
         s = time.time()
         # Initialization of subspace
         gamma_matrix = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
-        for i in range(3 if 3 < subspace_size else subspace_size):
+        for i in range(2):
             c_matrix = self._get_c_matrix(gamma_matrix)
-            c_k_matrix = self._transform_matrix(c_matrix, "forward")
-            gamma_matrix_new, residual = self._rism_forward(gamma_matrix, c_k_matrix)
+            gamma_matrix_new, residual = self._rism_forward(gamma_matrix, c_matrix)
             gamma_list.append(gamma_matrix)
             residual_list.append(residual)
-            gamma_matrix = gamma_matrix_new.copy()
+            gamma_matrix = gamma_matrix_new * 0.7 + gamma_matrix_new * 0.3
 
         epoch, is_finished = 0, False
         while epoch < max_iterations and not is_finished:
@@ -222,14 +221,10 @@ class RISMSolventDIIS1DSolver:
             gamma_matrix = cp.zeros_like(gamma_matrix)
             for i in range(cur_subspace_size):
                 gamma_matrix += factor[i] * gamma_list[i]
-            c_k_matrix = self._transform_matrix(
-                self._get_c_matrix(gamma_matrix), "forward"
-            )
-            gamma_matrix, _ = self._rism_forward(gamma_matrix, c_k_matrix)
-            c_k_matrix = self._transform_matrix(
-                self._get_c_matrix(gamma_matrix), "forward"
-            )
-            _, residual = self._rism_forward(gamma_matrix, c_k_matrix)
+            c_matrix = self._get_c_matrix(gamma_matrix)
+            gamma_matrix, _ = self._rism_forward(gamma_matrix, c_matrix)
+            c_matrix = self._get_c_matrix(gamma_matrix)
+            _, residual = self._rism_forward(gamma_matrix, c_matrix)
             gamma_list.append(gamma_matrix.copy())
             residual_list.append(residual.copy())
             epoch += 2
@@ -242,7 +237,6 @@ class RISMSolventDIIS1DSolver:
                 is_finished = self._check_and_log(epoch, residual, error_tolerance)
         e = time.time()
         print("Run solve() for %s s" % (e - s))
-        c_matrix = self._transform_matrix(c_k_matrix, "backward")
         return (gamma_matrix + c_matrix), c_matrix
 
     @property
