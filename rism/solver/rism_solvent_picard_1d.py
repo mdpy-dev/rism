@@ -17,6 +17,13 @@ from rism.potential import VDWPotential
 from rism.unit import *
 
 
+def index(matrix, i, j):
+    if i < j:
+        return matrix[i, j]
+    else:
+        return matrix[j, i]
+
+
 class RISMSolventPicard1DSolver:
     def __init__(
         self,
@@ -55,12 +62,13 @@ class RISMSolventPicard1DSolver:
 
         # To avoid the singularity point in zero index, we use 1:N+1 as the index
         # Hence the lr, appearing in calculation of k, is dr * (N+1)
-        lr = self._grid.dr * (self._grid.shape[0] + 1)
+        lr = self._grid.dr * (self._grid.shape[0])
         i_vec = cp.arange(1, self._grid.shape[0] + 1)
         j_vec = cp.arange(1, self._grid.shape[0] + 1)
         forward_factor = (4 * self._grid.dr**2 * lr) / j_vec
         backward_factor = 1 / (2 * lr**2 * self._grid.dr) / i_vec
         self._transform_coefficient = [i_vec, forward_factor, j_vec, backward_factor]
+        self._k = j_vec * cp.pi / lr
 
         self._site_list = self._solvent.particle_list
         self._bond_length = self._get_bond_length()
@@ -80,17 +88,21 @@ class RISMSolventPicard1DSolver:
         res = -cp.imag(fft.fft(fft_target, n=(2 * n + 1)))[1 : n + 1]
         return res
 
-    def _transform_matrix(self, matrix, mode):
-        res = self._get_empty_matrix(self._grid.shape)
+    def _transform(self, target, mode):
         if mode == "forward":
             vec = self._transform_coefficient[0]
             factor = self._transform_coefficient[1]
         elif mode == "backward":
             vec = self._transform_coefficient[2]
             factor = self._transform_coefficient[3]
+        res = self._fsint(target * vec) * factor
+        return res
+
+    def _transform_matrix(self, matrix, mode):
+        res = self._get_empty_matrix(self._grid.shape)
         for i in range(self._num_sites):
             for j in range(self._num_sites):
-                res[i, j] = self._fsint(matrix[i, j] * vec) * factor
+                res[i, j] = self._transform(matrix[i, j], mode)
         return res
 
     def _get_bond_length(self):
@@ -105,14 +117,12 @@ class RISMSolventPicard1DSolver:
         return length
 
     def _get_w_k_matrix(self):
-        j_vec = cp.arange(1, self._grid.shape[0] + 1)
         w_k = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
         for i in range(self._num_sites):
             for j in range(i, self._num_sites):
                 if i != j:
-                    # Denominator ensure the convolution normalized
-                    kr = j_vec * self._bond_length[i, j]
-                    target = cp.sin(kr) / kr * 0.5
+                    kr = self._k * self._bond_length[i, j]
+                    target = cp.sin(kr) / kr * 0.8
                     w_k[i, j] = target.copy()
                     w_k[j, i] = target.copy()
                 else:
@@ -131,37 +141,34 @@ class RISMSolventPicard1DSolver:
                     exp_u[j, i] = exp_u[i, j].copy()
         return exp_u
 
-    def _get_gamma_matrix(self, c_k_matrix, gamma_k_matrix):
+    def _get_gamma_matrix(self, c_k_matrix, gamma_k_matrix, alt):
         gamma_matrix = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
         h_k_matrix = c_k_matrix + gamma_k_matrix
+        alta, altb = CUPY_FLOAT(alt), CUPY_FLOAT(1 - alt)
         for i in range(self._num_sites):
-            for j in range(self._num_sites):
+            for j in range(i, self._num_sites):
                 gamma_matrix[i, j] = self._get_site_gamma_k(
                     c_k_matrix, h_k_matrix, i, j
                 )
+                h_k_new = gamma_matrix[i, j] + c_k_matrix[i, j]
+                h_k_matrix[i, j] = h_k_new * alta + h_k_matrix[i, j] * altb
+                if j != i:
+                    h_k_matrix[j, i] = h_k_matrix[i, j].copy()
+                    gamma_matrix[j, i] = gamma_matrix[i, j].copy()
         return self._transform_matrix(gamma_matrix, "backward")
 
     def _get_site_gamma_k(self, c_k_matrix, h_k_matrix, site1, site2):
         denominator = cp.zeros(self._grid.shape, CUPY_FLOAT)
         nominator = cp.zeros_like(denominator, dtype=CUPY_FLOAT)
-        # print("Site %d - Site %d" % (site1, site2))
         for i in range(self._num_sites):
             cur_nominator = cp.zeros(self._grid.shape, CUPY_FLOAT)
             denominator += self._w_k[site1, i] * c_k_matrix[i, site1]
             for j in range(self._num_sites):
                 if j != site1:
-                    # print(
-                    #     "cur_nominator += self._w_k[%d, %d] * (c_k_matrix[%d, %d] * (self._w_k[%d, %d] + self._rho_b * h_k_matrix[%d, %d]))"
-                    #     % (site1, i, i, j, j, site2, j, site2)
-                    # )
                     cur_nominator += c_k_matrix[i, j] * (
                         self._w_k[j, site2] + self._rho_b * h_k_matrix[j, site2]
                     )
                 else:
-                    # print(
-                    #     "cur_nominator += self._w_k[%d, %d] * (c_k_matrix[%d, %d] * self._w_k[%d, %d])"
-                    #     % (site1, i, i, j, j, site2)
-                    # )
                     cur_nominator += c_k_matrix[i, j] * self._w_k[j, site2]
             nominator += self._w_k[site1, i] * cur_nominator
         denominator = CUPY_FLOAT(1) - denominator * self._rho_b
@@ -178,7 +185,7 @@ class RISMSolventPicard1DSolver:
     def _rism_forward(self, gamma_matrix, c_matrix):
         gamma_k_matrix = self._transform_matrix(gamma_matrix, "forward")
         c_k_matrix = self._transform_matrix(c_matrix, "forward")
-        gamma_matrix_new = self._get_gamma_matrix(c_k_matrix, gamma_k_matrix)
+        gamma_matrix_new = self._get_gamma_matrix(c_k_matrix, gamma_k_matrix, 0.95)
         residual = gamma_matrix - gamma_matrix_new
         return gamma_matrix_new, residual
 
@@ -214,19 +221,16 @@ class RISMSolventPicard1DSolver:
         gamma_matrix = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
         c_matrix = self._get_c_matrix(gamma_matrix)
 
-        gamma_k_matrix = self._transform_matrix(gamma_matrix, "forward")
-        c_k_matrix = self._transform_matrix(c_matrix, "forward")
-
         s = time.time()
         alta, altb = CUPY_FLOAT(alt), CUPY_FLOAT(1 - alt)
         epoch, is_finished = 0, False
         while epoch < max_iterations and not is_finished:
             gamma_matrix_pre = gamma_matrix.copy()
             gamma_matrix, residual = self._rism_forward(gamma_matrix, c_matrix)
-            gamma_matrix = gamma_matrix * alta + gamma_matrix_pre * altb
+            # gamma_matrix = gamma_matrix * alta + gamma_matrix_pre * altb
             c_matrix = self._get_c_matrix(gamma_matrix)
             if epoch % log_freq == 0:
-                # self.visualize(self._w_k)
+                # self.visualize(gamma_matrix)
                 residual = float(cp.sqrt(((residual) ** 2).mean()).get())
                 is_finished = self._check_and_log(epoch, residual, error_tolerance)
             epoch += 1
@@ -251,6 +255,6 @@ class RISMSolventPicard1DSolver:
                 ax[i, j].plot(r, matrix[i, j].get(), ".-", label="g")
                 ax[i, j].set_title("%s-%s" % (self._site_list[i], self._site_list[j]))
                 ax[i, j].legend()
-                ax[i, j].set_ylim(y_min, y_max)
+                # ax[i, j].set_ylim(y_min, y_max)
         fig.tight_layout()
         plt.show()
