@@ -78,6 +78,14 @@ class RISMSolventPicard1DSolver:
     def _get_empty_matrix(self, shape, dtype=CUPY_FLOAT):
         return cp.zeros([self._num_sites, self._num_sites] + shape, dtype)
 
+    def _matmul(self, A, B):
+        res = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
+        for i in range(self._num_sites):
+            for j in range(self._num_sites):
+                for k in range(self._num_sites):
+                    res[i, j] += A[i, k] * B[k, j]
+        return res
+
     def _fsint(self, target):
         n = target.shape[0]
         # If we do not add point for i=0, value at i=1 will be ignored
@@ -122,7 +130,7 @@ class RISMSolventPicard1DSolver:
             for j in range(i, self._num_sites):
                 if i != j:
                     kr = self._k * self._bond_length[i, j]
-                    target = cp.sin(kr) / kr * 0.8
+                    target = cp.sin(kr) / kr
                     w_k[i, j] = target.copy()
                     w_k[j, i] = target.copy()
                 else:
@@ -141,39 +149,16 @@ class RISMSolventPicard1DSolver:
                     exp_u[j, i] = exp_u[i, j].copy()
         return exp_u
 
-    def _get_gamma_matrix(self, c_k_matrix, gamma_k_matrix, alt):
-        gamma_matrix = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
-        h_k_matrix = c_k_matrix + gamma_k_matrix
-        alta, altb = CUPY_FLOAT(alt), CUPY_FLOAT(1 - alt)
+    def _get_gamma_matrix(self, c_k_matrix):
+        wc_k_matrix = self._matmul(self._w_k, c_k_matrix)
+        wcw_k_matrix = self._matmul(wc_k_matrix, self._w_k)
+        A = -wc_k_matrix * self._rho_b
         for i in range(self._num_sites):
-            for j in range(i, self._num_sites):
-                gamma_matrix[i, j] = self._get_site_gamma_k(
-                    c_k_matrix, h_k_matrix, i, j
-                )
-                h_k_new = gamma_matrix[i, j] + c_k_matrix[i, j]
-                h_k_matrix[i, j] = h_k_new * alta + h_k_matrix[i, j] * altb
-                if j != i:
-                    h_k_matrix[j, i] = h_k_matrix[i, j].copy()
-                    gamma_matrix[j, i] = gamma_matrix[i, j].copy()
+            A[i, i] += 1
+        inv_A = cp.linalg.inv(A.T).T
+        h_k_matrix = self._matmul(inv_A, wcw_k_matrix)
+        gamma_matrix = h_k_matrix - c_k_matrix
         return self._transform_matrix(gamma_matrix, "backward")
-
-    def _get_site_gamma_k(self, c_k_matrix, h_k_matrix, site1, site2):
-        denominator = cp.zeros(self._grid.shape, CUPY_FLOAT)
-        nominator = cp.zeros_like(denominator, dtype=CUPY_FLOAT)
-        for i in range(self._num_sites):
-            cur_nominator = cp.zeros(self._grid.shape, CUPY_FLOAT)
-            denominator += self._w_k[site1, i] * c_k_matrix[i, site1]
-            for j in range(self._num_sites):
-                if j != site1:
-                    cur_nominator += c_k_matrix[i, j] * (
-                        self._w_k[j, site2] + self._rho_b * h_k_matrix[j, site2]
-                    )
-                else:
-                    cur_nominator += c_k_matrix[i, j] * self._w_k[j, site2]
-            nominator += self._w_k[site1, i] * cur_nominator
-        denominator = CUPY_FLOAT(1) - denominator * self._rho_b
-
-        return nominator / denominator - c_k_matrix[site1, site2]
 
     def _get_c_matrix(self, gamma_matrix):
         c_matrix = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
@@ -183,9 +168,8 @@ class RISMSolventPicard1DSolver:
         return c_matrix
 
     def _rism_forward(self, gamma_matrix, c_matrix):
-        gamma_k_matrix = self._transform_matrix(gamma_matrix, "forward")
         c_k_matrix = self._transform_matrix(c_matrix, "forward")
-        gamma_matrix_new = self._get_gamma_matrix(c_k_matrix, gamma_k_matrix, 0.95)
+        gamma_matrix_new = self._get_gamma_matrix(c_k_matrix)
         residual = gamma_matrix - gamma_matrix_new
         return gamma_matrix_new, residual
 
@@ -204,7 +188,7 @@ class RISMSolventPicard1DSolver:
         max_iterations,
         error_tolerance=1e-5,
         log_freq=10,
-        alt=0.9,
+        alt=0.8,
     ):
         """conduct Picard iteration for the 1D-RISM equation.
 
@@ -227,7 +211,7 @@ class RISMSolventPicard1DSolver:
         while epoch < max_iterations and not is_finished:
             gamma_matrix_pre = gamma_matrix.copy()
             gamma_matrix, residual = self._rism_forward(gamma_matrix, c_matrix)
-            # gamma_matrix = gamma_matrix * alta + gamma_matrix_pre * altb
+            gamma_matrix = gamma_matrix * alta + gamma_matrix_pre * altb
             c_matrix = self._get_c_matrix(gamma_matrix)
             if epoch % log_freq == 0:
                 # self.visualize(gamma_matrix)
