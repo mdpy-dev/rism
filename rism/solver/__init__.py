@@ -16,3 +16,6 @@ from rism.solver.oz_solvent_nr_3d import OZSolventNR3DSSolver
 # 1D RISM
 from rism.solver.rism_solvent_picard_1d import RISMSolventPicard1DSolver
 from rism.solver.rism_solvent_diss_1d import RISMSolventDIIS1DSolver
+
+from rism.solver.rism_polar_solvent_picard_1d import RISMPolarSolventPicard1DSolver
+from rism.solver.rism_polar_solvent_diis_1d import RISMPolarSolventDIIS1DSolver
