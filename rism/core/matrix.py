@@ -16,12 +16,13 @@ from rism.environment import *
 
 
 class Matrix:
-    def __init__(self, grid: FFTGrid, site_list: list) -> None:
+    def __init__(self, grid: FFTGrid, site_list: list, dtype=CUPY_FLOAT) -> None:
         self._grid = grid
         self._site_list = site_list
+        self._dtype = dtype
         self._num_sites = len(self._site_list)
         self._num_data = int((self._num_sites + 1) * self._num_sites * 0.5)
-        self._data = cp.zeros([self._num_data] + self._grid.shape, CUPY_FLOAT)
+        self._data = cp.zeros([self._num_data] + self._grid.shape, self._dtype)
 
     def _parse_site(self, site):
         if isinstance(site, str):
@@ -70,7 +71,7 @@ class Matrix:
         index = self._parse_site_pair(site1, site2)
         if isinstance(val, np.ndarray):
             val = cp.array(val)
-        self._data[index] = val.astype(CUPY_FLOAT)
+        self._data[index] = val.astype(self._dtype)
 
     @property
     def grid(self):
