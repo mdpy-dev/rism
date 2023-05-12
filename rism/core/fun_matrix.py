@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 """
-file : tcf_matrix.py
+file : fun_matrix.py
 created time : 2023/05/12
 author : Zhenyu Wei
 copyright : (C)Copyright 2021-present, mdpy organization
@@ -15,7 +15,7 @@ from rism.error import ArrayShapeError
 from rism.environment import *
 
 
-class TCFMatrix:
+class FunMatrix:
     def __init__(self, grid: FFTGrid, site_list: list) -> None:
         self._grid = grid
         self._site_list = site_list
@@ -43,20 +43,20 @@ class TCFMatrix:
         index = start_index[site1] + site2 - site1
         return index
 
-    def _check_dcf_shape(self, tcf: cp.ndarray):
+    def _check_val_shape(self, val: cp.ndarray):
         is_matched = True
-        if len(tcf.shape) != self._grid.num_dimensions:
+        if len(val.shape) != self._grid.num_dimensions:
             is_matched = False
         else:
-            for i, j in zip(tcf.shape, self._grid.shape):
+            for i, j in zip(val.shape, self._grid.shape):
                 if i != j:
                     is_matched = False
                     break
 
         if not is_matched:
             raise ArrayShapeError(
-                "tcf should have shape %s, while matrix with %s is provided"
-                % (tuple(self._grid.shape), tcf.shape)
+                "fun value should have shape %s, while matrix with %s is provided"
+                % (tuple(self._grid.shape), val.shape)
             )
 
     def __getitem__(self, key):
@@ -64,13 +64,13 @@ class TCFMatrix:
         index = self._parse_site_pair(site1, site2)
         return self._data[index]
 
-    def __setitem__(self, key, tcf):
-        self._check_dcf_shape(tcf)
+    def __setitem__(self, key, val):
+        self._check_val_shape(val)
         site1, site2 = key
         index = self._parse_site_pair(site1, site2)
-        if isinstance(tcf, np.ndarray):
-            tcf = cp.array(tcf)
-        self._data[index] = tcf.astype(CUPY_FLOAT)
+        if isinstance(val, np.ndarray):
+            val = cp.array(val)
+        self._data[index] = val.astype(CUPY_FLOAT)
 
     @property
     def grid(self):
