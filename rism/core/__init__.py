@@ -5,3 +5,4 @@ __license__ = "BSD-3"
 
 from rism.core.fft_grid import FFTGrid
 from rism.core.solvent import Solvent
+from rism.core.tcf_matrix import TCFMatrix
