@@ -10,15 +10,15 @@ copyright : (C)Copyright 2021-present, mdpy organization
 
 import pytest
 import cupy as cp
-from rism.core import FFTGrid, FunMatrix
+from rism.core import FFTGrid, Matrix
 from rism.error import ArrayShapeError
 
 
-class TestFunMatrix:
+class TestMatrix:
     def setup_method(self):
         grid = FFTGrid(x=[-10, 10, 64], y=[-10, 10, 64])
         site_list = ["o", "h1", "h2"]
-        self.matrix = FunMatrix(grid, site_list)
+        self.matrix = Matrix(grid, site_list)
 
     def teardown_method(self):
         del self.matrix
@@ -69,7 +69,7 @@ class TestFunMatrix:
 
 
 if __name__ == "__main__":
-    test = TestFunMatrix()
+    test = TestMatrix()
     test.setup_method()
     test.test_parse_site_pair()
     test.matrix[0, 1] = cp.ones([64, 64])

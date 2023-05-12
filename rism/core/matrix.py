@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 """
-file : fun_matrix.py
+file : matrix.py
 created time : 2023/05/12
 author : Zhenyu Wei
 copyright : (C)Copyright 2021-present, mdpy organization
@@ -15,7 +15,7 @@ from rism.error import ArrayShapeError
 from rism.environment import *
 
 
-class FunMatrix:
+class Matrix:
     def __init__(self, grid: FFTGrid, site_list: list) -> None:
         self._grid = grid
         self._site_list = site_list
@@ -55,7 +55,7 @@ class FunMatrix:
 
         if not is_matched:
             raise ArrayShapeError(
-                "fun value should have shape %s, while matrix with %s is provided"
+                "item of matrix should have shape %s, while matrix with %s is provided"
                 % (tuple(self._grid.shape), val.shape)
             )
 
