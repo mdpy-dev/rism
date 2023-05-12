@@ -8,7 +8,6 @@ copyright : (C)Copyright 2021-present, mdpy organization
 """
 
 
-from cProfile import label
 import pytest
 import cupy as cp
 import numpy as np
@@ -19,7 +18,7 @@ from rism.unit import *
 from rism.error import *
 
 
-class TestVDWPotential:
+class TestElePotential:
     def setup_method(self):
         pass
 
