@@ -39,3 +39,14 @@ class ClosureInputError(Exception):
     """
 
     pass
+
+
+class ArrayShapeError(Exception):
+    """This error occurs when:
+    - The Array has a unmatched shape
+
+    Used in:
+    - rism.core.dcf
+    """
+
+    pass
