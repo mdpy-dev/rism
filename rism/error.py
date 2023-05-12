@@ -50,3 +50,14 @@ class ArrayShapeError(Exception):
     """
 
     pass
+
+
+class SuffixError(Exception):
+    """This error occurs when:
+    - The suffix of file is unmatched with the requirement
+
+    Used in:
+    - rism.io
+    """
+
+    pass
