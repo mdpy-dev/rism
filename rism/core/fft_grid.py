@@ -17,6 +17,7 @@ class FFTGrid:
     def __init__(self, **coordinate_data) -> None:
         # Input
         # Set grid information and coordinate
+        self._coordinate_data = coordinate_data
         self._coordinate_label = list(coordinate_data.keys())
         grid, d_grid, l_grid = self._meshing(coordinate_data)
         self._shape = list(grid[0].shape)
@@ -53,6 +54,10 @@ class FFTGrid:
     @property
     def coordinate_label(self) -> list[str]:
         return self._coordinate_label
+
+    @property
+    def coordinate_data(self) -> dict:
+        return self._coordinate_data
 
     @property
     def num_dimensions(self) -> int:
