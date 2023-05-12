@@ -7,20 +7,16 @@ author : Zhenyu Wei
 copyright : (C)Copyright 2021-present, mdpy organization
 """
 
-import cupy as cp
-import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 import rism
 from rism.core import FFTGrid, Solvent
 from rism.solver.rism_polar_solvent_picard_1d import RISMPolarSolventPicard1DSolver
-from rism.environment import CUPY_FLOAT
+from rism.solvent import *
 from rism.unit import *
 
 
-def visualize(grid, h_matrix, c_matrix, site_list):
+def visualize(grid, matrix, site_list):
     num_sites = len(site_list)
-    g_matrix = h_matrix + 1
     r = grid.r.get()
 
     if True:
@@ -29,17 +25,17 @@ def visualize(grid, h_matrix, c_matrix, site_list):
             for j in range(i, num_sites - 1):
                 ax.plot(
                     r,
-                    g_matrix[i, j].get(),
+                    matrix[i, j].get(),
                     ".-",
                     label="%s-%s" % (site_list[i], site_list[j]),
                 )
                 ax.legend()
     else:
         fig, ax = plt.subplots(num_sites, num_sites, figsize=[16, 16])
-        y_max = g_matrix.max().get() * 1.1
+        y_max = matrix.max().get() * 1.1
         for i in range(num_sites):
             for j in range(num_sites):
-                ax[i, j].plot(r, g_matrix[i, j].get(), ".-", label="g")
+                ax[i, j].plot(r, matrix[i, j].get(), ".-", label="g")
                 ax[i, j].set_title("%s-%s" % (site_list[i], site_list[j]))
                 ax[i, j].legend()
                 ax[i, j].set_ylim(0, y_max)
@@ -47,23 +43,12 @@ def visualize(grid, h_matrix, c_matrix, site_list):
     plt.show()
 
 
-def get_solvent():
-    solvent = Solvent()
-    solvent.add_particle(name="o", particle_type="o")
-    solvent.add_particle(name="h1", particle_type="h")
-    solvent.add_particle(name="h2", particle_type="h")
-    solvent.add_bond("o", "h1", 0.9572)
-    solvent.add_bond("o", "h2", 0.9572)
-    solvent.add_bond("h1", "h2", 1.5139)
-    return solvent
-
-
 if __name__ == "__main__":
     temperature = 300
     grid = FFTGrid(r=[0, 15, 2048])
     rho_b = Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton) / NA
     closure = rism.closure.hnc
-    solvent = get_solvent()
+    solvent = tip3p()
 
     solver = RISMPolarSolventPicard1DSolver(
         grid=grid,
@@ -76,6 +61,6 @@ if __name__ == "__main__":
     print(solver._get_bond_length())
     print(grid.zeros_field().shape)
     h_matrix, c_matrix = solver.solve(max_iterations=1000, error_tolerance=1e-6)
-    visualize(grid, h_matrix, c_matrix, solver.site_list)
+    visualize(grid, h_matrix + 1, solver.site_list)
     # h, c = solver.solve(np.array([0, 0, 0]), iterations=500, restart_value=(h, c))
     # visualize(grid, h, c, False)
