@@ -17,13 +17,6 @@ from rism.potential import VDWPotential
 from rism.unit import *
 
 
-def index(matrix, i, j):
-    if i < j:
-        return matrix[i, j]
-    else:
-        return matrix[j, i]
-
-
 class RISMSolventPicard1DSolver:
     def __init__(
         self,
