@@ -19,17 +19,6 @@ class UnitDimensionMismatchedError(Exception):
     pass
 
 
-class UnregisteredParticleError(Exception):
-    """This error occurs when:
-    - A particle type has not been registered in rism.FFDict is provided.
-
-    Used in:
-    - rism.potential
-    """
-
-    pass
-
-
 class ClosureInputError(Exception):
     """This error occurs when:
     - The input of closure function is not supported.
