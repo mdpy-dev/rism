@@ -14,8 +14,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from rism.environment import CUPY_FLOAT
 from rism.potential import RVDWPotential
+from rism.element import *
 from rism.unit import *
-from rism.error import *
 
 
 class TestRVDWPotential:
@@ -26,17 +26,16 @@ class TestRVDWPotential:
         pass
 
     def test_attributes(self):
-        u = RVDWPotential(type1="k", type2="c")
-        assert u.type1 == "k"
-        assert u.type2 == "c"
+        u = RVDWPotential(potassium(), carbon())
+        assert u.particle1.name == "k"
+        assert u.particle2.name == "c"
 
     def test_exceptions(self):
-        with pytest.raises(UnregisteredParticleError):
-            RVDWPotential(type1="ab", type2="c")
+        pass
 
     def test_evaluate(self):
         threshold = Quantity(1, kilocalorie_permol)
-        vdw = RVDWPotential(type1="c", type2="k")
+        vdw = RVDWPotential(carbon(), potassium())
         r = cp.arange(0, 10, 0.1)
         u = vdw.evaluate(r, threshold=threshold)
         assert isinstance(u, cp.ndarray)
@@ -48,7 +47,7 @@ class TestRVDWPotential:
 
 if __name__ == "__main__":
 
-    vdw = RVDWPotential(type1="c", type2="k")
+    vdw = RVDWPotential(carbon(), potassium())
 
     r = cp.arange(0, 5, 0.1)
     u = vdw.evaluate(r, threshold=Quantity(1, kilocalorie_permol))

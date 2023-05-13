@@ -14,8 +14,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from rism.environment import CUPY_FLOAT
 from rism.potential import ElePotential, VDWPotential
+from rism.element import *
 from rism.unit import *
-from rism.error import *
 
 
 class TestElePotential:
@@ -26,17 +26,16 @@ class TestElePotential:
         pass
 
     def test_attributes(self):
-        u = ElePotential(type1="k", type2="c")
-        assert u.type1 == "k"
-        assert u.type2 == "c"
+        u = ElePotential(potassium(), carbon())
+        assert u.particle1.name == "k"
+        assert u.particle2.name == "c"
 
     def test_exceptions(self):
-        with pytest.raises(UnregisteredParticleError):
-            ElePotential(type1="ab", type2="c")
+        pass
 
     def test_evaluate(self):
         threshold = Quantity(1, kilocalorie_permol)
-        ele = ElePotential(type1="k", type2="k")
+        ele = ElePotential(potassium(), potassium())
         r = cp.arange(0, 10, 0.1)
         u = ele.evaluate(r, threshold=threshold)
         assert isinstance(u, cp.ndarray)
@@ -48,9 +47,9 @@ class TestElePotential:
 
 if __name__ == "__main__":
 
-    ele = ElePotential(type1="o", type2="o", alpha=1.0)
-    vdw = VDWPotential(type1="o", type2="o")
-    print(ele.q1, ele.q2)
+    o = oxygen()
+    ele = ElePotential(o, o, alpha=1.0)
+    vdw = VDWPotential(o, o)
     r = cp.arange(1, 20, 0.1)
     u_long = ele.evaluate_lr(r, threshold=Quantity(-1, kilocalorie_permol))
     u_short = ele.evaluate_sr(r, threshold=Quantity(-1, kilocalorie_permol))
