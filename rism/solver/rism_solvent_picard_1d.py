@@ -26,7 +26,7 @@ class RISMSolventPicard1DSolver:
         rho_b: Quantity,
         temperature=Quantity(300, kelvin),
     ) -> None:
-        """Create solver for a RISM equation in 1D spherical coordinate system using Picard method
+        """Create solver for RISM equation in 1D spherical coordinate system using Picard method
 
         Args:
             grid (FFTGrid): The grid defining the coordinate system

@@ -29,7 +29,7 @@ class RISMPolarSolventPicard1DSolver:
         temperature=Quantity(300, kelvin),
         alpha=0.8,
     ) -> None:
-        """Create solver for a RISM equation with polar interaction in 1D spherical coordinate system using Picard method
+        """Create solver for RISM equation with polar interaction in 1D spherical coordinate system using Picard method
 
         Args:
             grid (FFTGrid): The grid defining the coordinate system
