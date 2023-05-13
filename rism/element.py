@@ -91,10 +91,7 @@ def chlorine(name="cl"):
 
 
 def tip3p():
-    solvent = Solvent()
-    solvent.add_particle(name="o", particle_type="o")
-    solvent.add_particle(name="h1", particle_type="h")
-    solvent.add_particle(name="h2", particle_type="h")
+    solvent = Solvent([oxygen("o"), hydrogen("h1"), hydrogen("h2")])
     solvent.add_bond("o", "h1", 0.9572)
     solvent.add_bond("o", "h2", 0.9572)
     solvent.add_bond("h1", "h2", 1.5139)
