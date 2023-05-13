@@ -50,3 +50,25 @@ class SuffixError(Exception):
     """
 
     pass
+
+
+class DuplicatedNameError(Exception):
+    """This error occurs when:
+    - A list of particles have same particle name
+
+    Used in:
+    - rism.core.solvent
+    """
+
+    pass
+
+
+class SolventIncompleteError(Exception):
+    """This error occurs when:
+    - The bonding information of solvent is not complete
+
+    Used in:
+    - rism.core.solvent
+    """
+
+    pass
