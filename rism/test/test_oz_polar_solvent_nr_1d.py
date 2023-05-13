@@ -9,12 +9,11 @@ copyright : (C)Copyright 2021-present, mdpy organization
 
 
 import cupy as cp
-import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 import rism
 from rism.core import FFTGrid
 from rism.solver.oz_polar_solvent_nr_1d import OZPolarSolventNR1DSolver
+from rism.element import *
 from rism.environment import CUPY_FLOAT
 from rism.unit import *
 
@@ -54,7 +53,7 @@ if __name__ == "__main__":
         closure=closure,
         basis_set=basis_set,
         temperature=temperature,
-        solvent_type="o",
+        solvent=oxygen(),
         rho_b=rho_b,
     )
     h, c = solver.solve(
@@ -66,8 +65,8 @@ if __name__ == "__main__":
         nr_step_size=0.1,
         nr_tolerance=5e-5,
     )
-
     fig, ax = visualize(grid, h, c)
+
     h, c = solver.solve(
         max_iterations=1000,
         error_tolerance=1e-5,

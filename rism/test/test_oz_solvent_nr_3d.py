@@ -15,6 +15,7 @@ import rism
 from rism.core import FFTGrid
 from rism.solver import OZSolventNR3DSSolver
 from rism.environment import CUPY_FLOAT
+from rism.element import *
 from rism.unit import *
 
 
@@ -61,7 +62,7 @@ def visualize(grid, h, c, is_2d=True):
 if __name__ == "__main__":
     temperature = 300
     center = np.array([0, 0, 0])
-    grid = FFTGrid(x=[-20, 20, 256], y=[-20, 20, 256], z=[-20, 20, 256])
+    grid = FFTGrid(x=[-15, 15, 256], y=[-15, 15, 256], z=[-15, 15, 256])
     rho_b = Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton) / NA
     closure = rism.closure.kovalenko_hirata
 
@@ -78,7 +79,7 @@ if __name__ == "__main__":
         closure=closure,
         basis_set=basis_set,
         temperature=temperature,
-        solvent_type="o",
+        solvent=oxygen(),
         rho_b=rho_b,
     )
     h, c = solver.solve(

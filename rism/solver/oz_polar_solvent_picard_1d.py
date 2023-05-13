@@ -12,7 +12,7 @@ import time
 import cupy as cp
 import cupyx.scipy.fft as fft
 from rism.environment import CUPY_FLOAT
-from rism.core import FFTGrid
+from rism.core import FFTGrid, Particle
 from rism.potential import VDWPotential, ElePotential
 from rism.unit import *
 
@@ -22,23 +22,23 @@ class OZPolarSolventPicard1DSolver:
         self,
         grid: FFTGrid,
         closure,
-        solvent_type: str,
+        solvent: Particle,
         rho_b: Quantity,
         temperature=Quantity(300, kelvin),
     ) -> None:
-        """Create solver for a 3D Ornstein-Zernike equation in 3D cartesian coordinate system using Picard iteration
+        """Create solver for Ornstein-Zernike equation in 3D cartesian coordinate system using Picard iteration
 
         Args:
             grid (FFTGrid): The grid defining the coordinate system
             closure (Any): The closure for OZ equation from rism.closure
-            solvent_type (str): particle type of the solvent
+            solvent (Particle): particle object of the solvent
             rho_b (`rism.unit.Quantity` or `float`): density of solvent in bulk, Unit: mol_dimension/length_dimension**3
             temperature (`rism.unit.Quantity` or `float`, optional): _description_. Defaults to Quantity(300, kelvin).
         """
         # Read input
         self._grid = grid
         self._closure = closure
-        self._solvent_type = solvent_type
+        self._solvent = solvent
         self._rho_b = CUPY_FLOAT(
             (check_quantity(rho_b, mol / decimeter**3) * NA)
             .convert_to(1 / default_length_unit**3)
@@ -54,8 +54,8 @@ class OZPolarSolventPicard1DSolver:
     def _get_u(self, alpha=None):
         j_vec = cp.arange(1, self._grid.shape[0] + 1)
         k = j_vec * cp.pi / (self._grid.shape[0] + 1) / self._grid.dr
-        vdw = VDWPotential(self._solvent_type, self._solvent_type)
-        ele = ElePotential(self._solvent_type, self._solvent_type, alpha=alpha)
+        vdw = VDWPotential(self._solvent, self._solvent)
+        ele = ElePotential(self._solvent, self._solvent, alpha=alpha)
         u_s = ele.evaluate_sr(self._grid.r, -1)
         u_s += vdw.evaluate(self._grid.r, -1)
         u_l = ele.evaluate_lr(self._grid.r, -1)

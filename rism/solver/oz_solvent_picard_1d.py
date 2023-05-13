@@ -11,10 +11,8 @@ copyright : (C)Copyright 2021-present, mdpy organization
 import time
 import cupy as cp
 import cupyx.scipy.fft as fft
-import numpy as np
-from scipy.fft import dst, idst
 from rism.environment import CUPY_FLOAT
-from rism.core import FFTGrid
+from rism.core import FFTGrid, Particle
 from rism.potential import VDWPotential
 from rism.unit import *
 
@@ -24,23 +22,23 @@ class OZSolventPicard1DSolver:
         self,
         grid: FFTGrid,
         closure,
-        solvent_type: str,
+        solvent: Particle,
         rho_b: Quantity,
         temperature=Quantity(300, kelvin),
     ) -> None:
-        """Create solver for a 3D Ornstein-Zernike equation in 3D cartesian coordinate system using Picard iteration
+        """Create solver for Ornstein-Zernike equation in 3D cartesian coordinate system using Picard iteration
 
         Args:
             grid (FFTGrid): The grid defining the coordinate system
             closure (Any): The closure for OZ equation from rism.closure
-            solvent_type (str): particle type of the solvent
+            solvent (Particle): particle object of the solvent
             rho_b (`rism.unit.Quantity` or `float`): density of solvent in bulk, Unit: mol_dimension/length_dimension**3
             temperature (`rism.unit.Quantity` or `float`, optional): _description_. Defaults to Quantity(300, kelvin).
         """
         # Read input
         self._grid = grid
         self._closure = closure
-        self._solvent_type = solvent_type
+        self._solvent = solvent
         self._rho_b = CUPY_FLOAT(
             (check_quantity(rho_b, mol / decimeter**3) * NA)
             .convert_to(1 / default_length_unit**3)
@@ -54,7 +52,7 @@ class OZSolventPicard1DSolver:
         )
 
     def _get_u(self):
-        vdw = VDWPotential(self._solvent_type, self._solvent_type)
+        vdw = VDWPotential(self._solvent, self._solvent)
         u = vdw.evaluate(self._grid.r, -1)
         return u.astype(CUPY_FLOAT)
 
@@ -138,19 +136,3 @@ class OZSolventPicard1DSolver:
         print("Run solve() for %s s" % (e - s))
         h = gamma + c
         return h, c
-
-    def visualize(self, h, c):
-        import matplotlib.pyplot as plt
-
-        fig, ax = plt.subplots(1, 3, figsize=[25, 9])
-        g = h + 1
-        gamma = h - c
-
-        r = self._grid.r.get()
-        ax[0].plot(r, g.get(), ".-")
-        ax[1].plot(r, c.get(), ".-")
-        ax[2].plot(r, gamma.get(), ".-")
-        ax[0].set_title("g")
-        ax[1].set_title("c")
-        ax[2].set_title(r"$\gamma$")
-        plt.show()

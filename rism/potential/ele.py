@@ -12,7 +12,7 @@ import math
 import cupy as cp
 import numpy as np
 from cupyx.scipy.special import erf, erfc
-from rism.potential import FF_DICT, check_particle_type
+from rism.core import Particle
 from rism.unit import *
 from rism.environment import *
 
@@ -20,31 +20,25 @@ from rism.environment import *
 class ElePotential:
     def __init__(
         self,
-        type1: str,
-        type2: str,
+        particle1: Particle,
+        particle2: Particle,
         r_cut=Quantity(10, angstrom),
         direct_sum_energy_tolerance=1e-5,
         alpha=None,
     ) -> None:
-        self._type1 = check_particle_type(type1)
-        self._type2 = check_particle_type(type2)
+        self._particle1 = particle1
+        self._particle2 = particle2
         self._r_cut = check_quantity_value(r_cut, default_length_unit)
         self._direct_sum_energy_tolerance = direct_sum_energy_tolerance
         if alpha is None:
             self._alpha = self._get_ewald_coefficient()
         else:
             self._alpha = alpha
-        self._q1, self._q2 = self._get_ele_parameter()
+        self._q1, self._q2 = self._particle1.q, self._particle2.q
         self._epsilon0 = EPSILON0.convert_to(
             default_charge_unit**2 / default_energy_unit / default_length_unit
         ).value
-        print(self._epsilon0)
         self._factor = CUPY_FLOAT(self._q1 * self._q2 / (4 * np.pi * self._epsilon0))
-
-    def _get_ele_parameter(self):
-        q1 = check_quantity_value(FF_DICT[self._type1]["q"], default_charge_unit)
-        q2 = check_quantity_value(FF_DICT[self._type2]["q"], default_charge_unit)
-        return (CUPY_FLOAT(q1), CUPY_FLOAT(q2))
 
     def _get_ewald_coefficient(self):
         """
@@ -97,17 +91,9 @@ class ElePotential:
         return res.astype(CUPY_FLOAT)
 
     @property
-    def type1(self):
-        return self._type1
+    def particle1(self) -> Particle:
+        return self._particle1
 
     @property
-    def type2(self):
-        return self._type2
-
-    @property
-    def q1(self):
-        return self._q1
-
-    @property
-    def q2(self):
-        return self._q2
+    def particle2(self) -> Particle:
+        return self._particle2

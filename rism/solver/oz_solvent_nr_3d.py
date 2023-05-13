@@ -14,7 +14,7 @@ import torch as tc
 import torch.fft as fft
 from torch.autograd import grad
 from rism.environment import CUPY_FLOAT, TORCH_FLOAT, NUMPY_FLOAT
-from rism.core import FFTGrid
+from rism.core import FFTGrid, Particle
 from rism.potential import VDWPotential
 from rism.unit import *
 
@@ -25,12 +25,12 @@ class OZSolventNR3DSSolver:
         grid: FFTGrid,
         closure,
         basis_set,
-        solvent_type: str,
+        solvent: Particle,
         rho_b: Quantity,
         temperature=Quantity(300, kelvin),
         device=tc.device("cuda"),
     ) -> None:
-        """Create solver for a 3D Ornstein-Zernike equation in 3D cartesian coordinate system using Picard iteration
+        """Create solver for Ornstein-Zernike equation in 3D cartesian coordinate system using Newton-Raphson iteration
 
         Reference:
             Gillan, M. J. A new method of solving the liquid structure integral equations. Molecular Physics 38, 1781-1794 (1979).
@@ -39,7 +39,7 @@ class OZSolventNR3DSSolver:
             grid (FFTGrid): The grid defining the coordinate system
             closure (Any): The closure for OZ equation from rism.closure
             basis_set (list): List of basis functions
-            solvent_type (str): particle type of the solvent
+            solvent (Particle): particle object of the solvent
             rho_b (`rism.unit.Quantity` or `float`): density of solvent in bulk, Unit: mol_dimension/length_dimension**3
             temperature (`rism.unit.Quantity` or `float`, optional): _description_. Defaults to Quantity(300, kelvin).
         """
@@ -48,7 +48,7 @@ class OZSolventNR3DSSolver:
         self._grid = grid
         self._closure = closure
         self._basis_set = [self._tensor_from_cupy(i) for i in basis_set]
-        self._solvent_type = solvent_type
+        self._solvent = solvent
         self._rho_b = NUMPY_FLOAT(
             (check_quantity(rho_b, mol / decimeter**3) * NA)
             .convert_to(1 / default_length_unit**3)
@@ -77,7 +77,7 @@ class OZSolventNR3DSSolver:
         return tc.zeros(shape, dtype=TORCH_FLOAT, device=self._device)
 
     def _get_u(self, coordinate):
-        vdw = VDWPotential(self._solvent_type, self._solvent_type)
+        vdw = VDWPotential(self._solvent, self._solvent)
         r = cp.sqrt(
             (self._grid.x - coordinate[0]) ** 2
             + (self._grid.y - coordinate[1]) ** 2
@@ -229,6 +229,7 @@ class OZSolventNR3DSSolver:
         while total_epoch < max_iterations and not is_finished:
             nr_epoch = 0
             while nr_epoch < nr_max_iterations and not is_finished:
+                is_break = False
                 # New gamma from alpha and delta_gamma
                 gamma = self._zeros(self._grid.shape)
                 for i in range(self._num_basis):
@@ -250,8 +251,8 @@ class OZSolventNR3DSSolver:
                 nr_residual = loss.mean().detach()
                 jacobian = self._zeros((self._num_basis, self._num_basis))
                 for i in range(self._num_basis):
-                    jacobian[i, :] = grad(loss[i], alpha, retain_graph=True)[0]
-                dl_da = grad(loss.sum(), alpha)[0]
+                    is_retain = i < self._num_basis - 1
+                    jacobian[i, :] = grad(loss[i], alpha, retain_graph=is_retain)[0]
                 inv_jacobian, is_un_inv = tc.linalg.inv_ex(jacobian)
                 if is_un_inv:
                     print(
@@ -260,20 +261,19 @@ class OZSolventNR3DSSolver:
                     )
                     alpha = tc.clone(alpha)
                     alpha.requires_grad_(True)
-                    break
+                    is_break = True
                 else:
                     alpha = alpha - tc.matmul(inv_jacobian, loss) * nr_step_size
                 alpha.requires_grad_(True)
 
-                nr_epoch += 1
-                total_epoch += 1
                 if nr_residual <= nr_tolerance:
                     print(
                         "\t(Inner NR) Stop NR iterate at %d steps, d_alpha %.3e smaller than tolerance %.3e"
                         % (total_epoch, nr_residual, nr_tolerance)
                     )
-                    break
-
+                    is_break = True
+                nr_epoch += 1
+                total_epoch += 1
                 # Verbose
                 if total_epoch % log_freq == 0:
                     residual = float(tc.sqrt(((gamma - gamma_prime) ** 2).mean()))
@@ -285,6 +285,8 @@ class OZSolventNR3DSSolver:
                         total_epoch, residual, error_tolerance
                     )
                     is_finished |= residual >= 10 * min_residual
+                if is_break:
+                    break
 
             # delta_gamma_prime
             delta_gamma = tc.clone(gamma_prime)

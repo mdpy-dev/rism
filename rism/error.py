@@ -19,17 +19,6 @@ class UnitDimensionMismatchedError(Exception):
     pass
 
 
-class UnregisteredParticleError(Exception):
-    """This error occurs when:
-    - A particle type has not been registered in rism.FFDict is provided.
-
-    Used in:
-    - rism.potential
-    """
-
-    pass
-
-
 class ClosureInputError(Exception):
     """This error occurs when:
     - The input of closure function is not supported.
@@ -58,6 +47,28 @@ class SuffixError(Exception):
 
     Used in:
     - rism.io
+    """
+
+    pass
+
+
+class DuplicatedNameError(Exception):
+    """This error occurs when:
+    - A list of particles have same particle name
+
+    Used in:
+    - rism.core.solvent
+    """
+
+    pass
+
+
+class SolventIncompleteError(Exception):
+    """This error occurs when:
+    - The bonding information of solvent is not complete
+
+    Used in:
+    - rism.core.solvent
     """
 
     pass

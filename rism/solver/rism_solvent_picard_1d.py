@@ -17,13 +17,6 @@ from rism.potential import VDWPotential
 from rism.unit import *
 
 
-def index(matrix, i, j):
-    if i < j:
-        return matrix[i, j]
-    else:
-        return matrix[j, i]
-
-
 class RISMSolventPicard1DSolver:
     def __init__(
         self,
@@ -33,7 +26,7 @@ class RISMSolventPicard1DSolver:
         rho_b: Quantity,
         temperature=Quantity(300, kelvin),
     ) -> None:
-        """Create solver for a RISM equation in 3D cartesian coordinate system using Picard iteration
+        """Create solver for RISM equation in 1D spherical coordinate system using Picard method
 
         Args:
             grid (FFTGrid): The grid defining the coordinate system
@@ -70,7 +63,6 @@ class RISMSolventPicard1DSolver:
         self._transform_coefficient = [i_vec, forward_factor, j_vec, backward_factor]
         self._k = j_vec * cp.pi / lr
 
-        self._site_list = self._solvent.particle_list
         self._bond_length = self._get_bond_length()
         self._w_k = self._get_w_k_matrix()
         self._exp_u = self._get_exp_u_matrix()
@@ -117,11 +109,8 @@ class RISMSolventPicard1DSolver:
         length = self._get_empty_matrix([])
         for i in range(self._num_sites):
             for j in range(self._num_sites):
-                length[i, j] = CUPY_FLOAT(
-                    self._solvent.get_bond(self._site_list[i], self._site_list[j])
-                    if i != j
-                    else 0
-                )
+                if i != j:
+                    length[i, j] = CUPY_FLOAT(self._solvent.get_bond_length(i, j))
         return length
 
     def _get_w_k_matrix(self):
@@ -140,10 +129,10 @@ class RISMSolventPicard1DSolver:
     def _get_exp_u_matrix(self):
         exp_u = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
         for i in range(self._num_sites):
-            type1 = self._solvent.get_particle(self._site_list[i])["type"]
+            particle1 = self._solvent.particle_list[i]
             for j in range(i, self._num_sites):
-                type2 = self._solvent.get_particle(self._site_list[j])["type"]
-                vdw = VDWPotential(type1, type2)
+                particle2 = self._solvent.particle_list[j]
+                vdw = VDWPotential(particle1, particle2)
                 exp_u[i, j] = cp.exp(-self._beta * vdw.evaluate(self._grid.r, -1))
                 if i != j:
                     exp_u[j, i] = exp_u[i, j].copy()
@@ -214,7 +203,6 @@ class RISMSolventPicard1DSolver:
             gamma_matrix = gamma_matrix * alta + gamma_matrix_pre * altb
             c_matrix = self._get_c_matrix(gamma_matrix)
             if epoch % log_freq == 0:
-                # self.visualize(gamma_matrix)
                 residual = float(cp.sqrt(((residual) ** 2).mean()).get())
                 is_finished = self._check_and_log(epoch, residual, error_tolerance)
             epoch += 1
@@ -222,23 +210,3 @@ class RISMSolventPicard1DSolver:
         e = time.time()
         print("Run solve() for %s s" % (e - s))
         return (gamma_matrix + c_matrix), c_matrix
-
-    @property
-    def site_list(self):
-        return self._site_list
-
-    def visualize(self, matrix):
-        import matplotlib.pyplot as plt
-
-        r = self._grid.r.get()
-        fig, ax = plt.subplots(self._num_sites, self._num_sites, figsize=[16, 16])
-        y_max = matrix.max().get() * 1.1
-        y_min = matrix.min().get() * 1.1
-        for i in range(self._num_sites):
-            for j in range(self._num_sites):
-                ax[i, j].plot(r, matrix[i, j].get(), ".-", label="g")
-                ax[i, j].set_title("%s-%s" % (self._site_list[i], self._site_list[j]))
-                ax[i, j].legend()
-                # ax[i, j].set_ylim(y_min, y_max)
-        fig.tight_layout()
-        plt.show()

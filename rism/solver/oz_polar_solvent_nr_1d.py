@@ -14,7 +14,7 @@ import torch as tc
 import torch.fft as fft
 from torch.autograd import grad
 from rism.environment import CUPY_FLOAT, NUMPY_FLOAT, TORCH_FLOAT
-from rism.core import FFTGrid
+from rism.core import FFTGrid, Particle
 from rism.potential import VDWPotential, ElePotential
 from rism.unit import *
 
@@ -25,12 +25,12 @@ class OZPolarSolventNR1DSolver:
         grid: FFTGrid,
         closure,
         basis_set,
-        solvent_type: str,
+        solvent: Particle,
         rho_b: Quantity,
         temperature=Quantity(300, kelvin),
         device=tc.device("cuda"),
     ) -> None:
-        """Create solver for a Ornstein-Zernike equation in 1D spherical coordinate system using NR iteration
+        """Create solver for Ornstein-Zernike equation in 1D spherical coordinate system using Newton-Raphson iteration
 
         Reference:
             Gillan, M. J. A new method of solving the liquid structure integral equations. Molecular Physics 38, 1781-1794 (1979).
@@ -39,16 +39,16 @@ class OZPolarSolventNR1DSolver:
             grid (FFTGrid): The grid defining the coordinate system
             closure (Any): The closure for OZ equation from rism.closure
             basis_set (list): List of basis functions
-            solvent_type (str): particle type of the solvent
+            solvent (Particle): particle object of the solvent
             rho_b (`rism.unit.Quantity` or `float`): density of solvent in bulk, Unit: mol_dimension/length_dimension**3
-            temperature (`rism.unit.Quantity` or `float`, optional): _description_. Defaults to Quantity(300, kelvin).
+            temperature (`rism.unit.Quantity` or `float`, optional): temperature. Defaults to Quantity(300, kelvin).
         """
         # Read input
         self._device = device
         self._grid = grid
         self._closure = closure
         self._basis_set = [self._tensor_from_cupy(i) for i in basis_set]
-        self._solvent_type = solvent_type
+        self._solvent = solvent
         self._rho_b = NUMPY_FLOAT(
             (check_quantity(rho_b, mol / decimeter**3) * NA)
             .convert_to(1 / default_length_unit**3)
@@ -103,8 +103,8 @@ class OZPolarSolventNR1DSolver:
     def _get_u(self, alpha=None):
         j_vec = cp.arange(1, self._grid.shape[0] + 1)
         k = j_vec * cp.pi / (self._grid.shape[0] + 1) / self._grid.dr
-        vdw = VDWPotential(self._solvent_type, self._solvent_type)
-        ele = ElePotential(self._solvent_type, self._solvent_type, alpha=alpha)
+        vdw = VDWPotential(self._solvent, self._solvent)
+        ele = ElePotential(self._solvent, self._solvent, alpha=alpha)
         u_s = ele.evaluate_sr(self._grid.r, -1)
         u_s += vdw.evaluate(self._grid.r, -1)
         u_l = ele.evaluate_lr(self._grid.r, -1)

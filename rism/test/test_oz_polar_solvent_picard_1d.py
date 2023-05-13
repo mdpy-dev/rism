@@ -8,14 +8,11 @@ copyright : (C)Copyright 2021-present, mdpy organization
 """
 
 
-import cupy as cp
-import numpy as np
-import matplotlib
 import matplotlib.pyplot as plt
 import rism
 from rism.core import FFTGrid
 from rism.solver.oz_polar_solvent_picard_1d import OZPolarSolventPicard1DSolver
-from rism.environment import CUPY_FLOAT
+from rism.element import *
 from rism.unit import *
 
 
@@ -47,7 +44,7 @@ if __name__ == "__main__":
         grid=grid,
         closure=closure,
         temperature=temperature,
-        solvent_type="h",
+        solvent=hydrogen(),
         rho_b=rho_b,
     )
     h, c = solver.solve(
