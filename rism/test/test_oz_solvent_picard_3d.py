@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 import rism
 from rism.core import FFTGrid
 from rism.solver import OZSolventPicard3DSolver
+from rism.element import *
 from rism.unit import *
 
 
@@ -50,7 +51,7 @@ def visualize(grid, h, c, is_2d=True):
 
 if __name__ == "__main__":
     temperature = 300
-    grid = FFTGrid(x=[-20, 20, 256], y=[-20, 20, 256], z=[-20, 20, 256])
+    grid = FFTGrid(x=[-15, 15, 256], y=[-15, 15, 256], z=[-15, 15, 256])
     rho_b = Quantity(1.014, kilogram / decimeter**3) / Quantity(18, dalton) / NA
     closure = rism.closure.kovalenko_hirata
 
@@ -58,7 +59,7 @@ if __name__ == "__main__":
         grid=grid,
         closure=closure,
         temperature=temperature,
-        solvent_type="o",
+        solvent=oxygen(),
         rho_b=rho_b,
     )
     h, c = solver.solve(np.array([5, 0, 0]), max_iterations=1000, error_tolerance=1e-5)
