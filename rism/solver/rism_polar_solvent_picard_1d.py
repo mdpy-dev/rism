@@ -66,7 +66,6 @@ class RISMPolarSolventPicard1DSolver:
         self._transform_coefficient = [i_vec, forward_factor, j_vec, backward_factor]
         self._k = j_vec * cp.pi / (self._grid.shape[0] + 1) / self._grid.dr
 
-        self._site_list = self._solvent.particle_list
         self._bond_length = self._get_bond_length()
         self._w_k = self._get_w_k_matrix()
         self._exp_u, self._u_lr_k = self._get_u_matrix(alpha)
@@ -113,11 +112,8 @@ class RISMPolarSolventPicard1DSolver:
         length = self._get_empty_matrix([])
         for i in range(self._num_sites):
             for j in range(self._num_sites):
-                length[i, j] = CUPY_FLOAT(
-                    self._solvent.get_bond(self._site_list[i], self._site_list[j])
-                    if i != j
-                    else 0
-                )
+                if i != j:
+                    length[i, j] = CUPY_FLOAT(self._solvent.get_bond_length(i, j))
         return length
 
     def _get_w_k_matrix(self):
@@ -139,11 +135,11 @@ class RISMPolarSolventPicard1DSolver:
         exp_u = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
         u_lr_k = self._get_empty_matrix(self._grid.shape, dtype=CUPY_FLOAT)
         for i in range(self._num_sites):
-            type1 = self._solvent.get_particle(self._site_list[i])["type"]
+            particle1 = self._solvent.particle_list[i]
             for j in range(i, self._num_sites):
-                type2 = self._solvent.get_particle(self._site_list[j])["type"]
-                vdw = VDWPotential(type1, type2)
-                ele = ElePotential(type1, type2, alpha=alpha)
+                particle2 = self._solvent.particle_list[j]
+                vdw = VDWPotential(particle1, particle2)
+                ele = ElePotential(particle1, particle2, alpha=alpha)
                 u = vdw.evaluate(r, -1) + ele.evaluate_sr(r, -1)
                 exp_u[i, j] = cp.exp(-self._beta * u)
                 u_lr_k[i, j] = self._beta * ele.evaluate_lr_k(self._k)
@@ -225,35 +221,3 @@ class RISMPolarSolventPicard1DSolver:
         e = time.time()
         print("Run solve() for %s s" % (e - s))
         return (gamma_s_matrix + c_s_matrix), c_s_matrix
-
-    @property
-    def site_list(self):
-        return self._site_list
-
-    def visualize(self, matrix):
-        import matplotlib.pyplot as plt
-
-        r = self._grid.r.get()
-
-        # fig, ax = plt.subplots(1, 1, figsize=[16, 9])
-        # for i in range(self._num_sites - 1):
-        #     for j in range(i, self._num_sites - 1):
-        #         ax.plot(
-        #             r,
-        #             matrix[i, j].get(),
-        #             ".-",
-        #             label="%s-%s" % (self._site_list[i], self._site_list[j]),
-        #         )
-        #         ax.legend()
-
-        fig, ax = plt.subplots(self._num_sites, self._num_sites, figsize=[16, 16])
-        y_max = matrix.max().get() * 1.1
-        y_min = matrix.min().get() * 1.1
-        for i in range(self._num_sites):
-            for j in range(self._num_sites):
-                ax[i, j].plot(r, matrix[i, j].get(), ".-", label="g")
-                ax[i, j].set_title("%s-%s" % (self._site_list[i], self._site_list[j]))
-                ax[i, j].legend()
-                ax[i, j].set_ylim(y_min, y_max)
-        fig.tight_layout()
-        plt.show()
