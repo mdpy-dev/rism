@@ -26,7 +26,7 @@ class RISMSolventDIIS1DSolver:
         rho_b: Quantity,
         temperature=Quantity(300, kelvin),
     ) -> None:
-        """Create solver for a RISM equation in 3D cartesian coordinate system using Picard iteration
+        """Create solver for a RISM equation in 1D spherical coordinate system using DIIS method
 
         Args:
             grid (FFTGrid): The grid defining the coordinate system
